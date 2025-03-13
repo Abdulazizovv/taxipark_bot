@@ -14,3 +14,7 @@ class Driver(models.Model):
 
     def __str__(self):
         return self.full_name
+    
+    def save(self):
+        self.car_plate = self.car_plate.upper()
+        super(Driver, self).save()
