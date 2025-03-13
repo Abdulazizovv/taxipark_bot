@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'driver',
     'service',
     'manager',
+    'service_category',
 ]
 
 MIDDLEWARE = [
