@@ -26,8 +26,19 @@ async def get_contact(message: types.Message):
         last_name=message.from_user.last_name
     )
 
-    await message.answer("Tabriklaymiz! Siz muvaffaqiyatli ro'yxatdan o'tdingiz!\n"
-                         "Bosh sahifaga qaytish uchun /menu ni bosing!")
+    if user['created']:
+        if user['user']['is_admin']:
+            await message.answer("Siz admin sifatida ro'yxatdan o'tdingiz!\n"
+                                 "/start buyrug'ini bering")
+        elif user['user']['is_service']:
+            await message.answer("Siz xizmat ko'rsatuvchi sifatida ro'yxatdan o'tdingiz!\n"
+                                 "/start buyrug'ini bering")
+        else:
+            await message.answer("Siz muvaffaqiyatli ro'yxatdan o'tdingiz!\n"
+                                 "Iltimos, hisobingiz aktivlashtirilishini kuting!")
+    else:
+        await message.answer("Siz avval ro'yxatdan o'tgansiz!\n"
+                             "Iltimos, hisobingiz aktivlashtirilishini kuting!")
 
 
 
