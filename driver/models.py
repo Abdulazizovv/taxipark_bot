@@ -7,8 +7,15 @@ class Driver(models.Model):
     full_name = models.CharField(max_length=100)
     car_model = models.CharField(max_length=100)
     car_plate = models.CharField(max_length=10, unique=True)
+    tariff_choices = (
+        ("Standard", "Standard"),
+        ("Comfort", "Comfort"),
+        ("Business", "Business"),
+        ("Premium", "Premium"),
+    )
+    tariff = models.CharField(max_length=10, choices=tariff_choices, default="Standard")
     balance = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    is_deleted = models.BooleanField(default=False)
+    is_deleted = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
