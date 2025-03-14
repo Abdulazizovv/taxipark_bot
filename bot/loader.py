@@ -8,6 +8,3 @@ storage = MemoryStorage()
 dp = Dispatcher(bot, storage=storage)
 db = DBCommands()
 
-# db = DataBase()
-
-

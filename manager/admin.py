@@ -3,7 +3,7 @@ from .models import Manager
 
 
 class ManagerAdmin(admin.ModelAdmin):
-    list_display = ['full_name', 'phone_number', 'is_deleted', 'created_at', 'updated_at']
+    list_display = ['full_name', 'phone_number', 'role', 'is_deleted', 'created_at', 'updated_at']
     list_filter = ['is_deleted', 'created_at', 'updated_at']
     search_fields = ['full_name', 'phone_number']
     list_per_page = 10
