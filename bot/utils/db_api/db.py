@@ -27,7 +27,7 @@ class DBCommands:
                 'username': user.username,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
-                'is_admin': user.is_admin,
+                'role': user.role,
             },
             'created': created
         }
@@ -35,20 +35,8 @@ class DBCommands:
     
 
     @sync_to_async
-    def user_is_admin(self, user_id):
-        try:
-            user = BotUser.objects.get(user_id=user_id)
-            return user.is_admin
-        except BotUser.DoesNotExist:
-            logging.error(f"User with user_id {user_id} does not exist when checking if user is admin")
-            return False
-        
-    @sync_to_async
-    def user_is_service(self, user_id):
-        try:
-            user = BotUser.objects.get(user_id=user_id)
-            return user.is_service
-        except BotUser.DoesNotExist:
-            logging.error(f"User with user_id {user_id} does not exist when checking if user is service")
-            return False
-        
+    def bot_user_role(self, user_id):
+        user = BotUser.objects.filter(user_id=user_id).first()
+        if user:
+            return user.role
+        return None

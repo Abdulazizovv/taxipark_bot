@@ -11,17 +11,12 @@ class BotUser(models.Model):
     last_name = models.CharField(max_length=255, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    is_admin = models.BooleanField(default=False)
-    is_service = models.BooleanField(default=False)
-
-    # Foydalanuvchini admin yoki servisdan biri ekanligini tekshirish
-    def clean(self):
-        if self.is_admin and self.is_service:
-            raise ValidationError("A user cannot be both an admin and a service user.")
-    
-    def save(self, *args, **kwargs):
-        self.clean()
-        super().save(*args, **kwargs)
+    role_choices = (
+        ('admin', 'Admin'),
+        ('service', 'Service'),
+        ('user', 'User'),
+    )
+    role = models.CharField(max_length=15, choices=role_choices, default='user') 
 
     def __str__(self):
         return f'{self.first_name} {self.last_name}'

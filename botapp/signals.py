@@ -8,8 +8,7 @@ from manager.models import Manager
 def check_user_is_admin(sender, instance, created, **kwargs):
     if created:
         if instance.phone_number in Manager.objects.values_list("phone_number", flat=True):
-            instance.is_admin = True
-            instance.save()
+            instance.role = 'admin'
         
 
         

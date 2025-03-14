@@ -2,11 +2,13 @@ from aiogram import Dispatcher
 
 from bot.loader import dp
 from .is_admin import IsAdmin
+from .is_service import IsService
 from .is_group import IsGroup
 
 
 def setup(dp: Dispatcher):
     dp.filters_factory.bind(IsAdmin)
+    dp.filters_factory.bind(IsService)
     dp.filters_factory.bind(IsGroup)
     pass
 
