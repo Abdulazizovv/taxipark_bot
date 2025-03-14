@@ -10,8 +10,11 @@ admin_menu_kb = InlineKeyboardMarkup(
             InlineKeyboardButton(text="Yangi haydovchi➕", callback_data=admin_menu_cd.new(action="new_driver")),
         ],
         [
-            InlineKeyboardButton(text="Servislar📍", callback_data=admin_menu_cd.new(action="seriveces")),
+            InlineKeyboardButton(text="Servislar📍", callback_data=admin_menu_cd.new(action="services")),
             InlineKeyboardButton(text="Yangi servis➕", callback_data=admin_menu_cd.new(action="new_service")),
         ],
+        [
+            InlineKeyboardButton(text="Statistika📊", callback_data=admin_menu_cd.new(action="stats")),
+        ]
     ]
 )
