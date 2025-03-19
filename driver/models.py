@@ -22,6 +22,8 @@ class Driver(models.Model):
     def __str__(self):
         return self.full_name
     
-    def save(self):
+    def save(self, **kwargs):
+        self.full_name = self.full_name.title()
+        self.car_model = self.car_model.title()
         self.car_plate = self.car_plate.upper()
-        super(Driver, self).save()
+        super(Driver, self).save(**kwargs)

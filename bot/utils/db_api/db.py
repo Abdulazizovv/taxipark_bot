@@ -2,8 +2,19 @@ from asgiref.sync import sync_to_async
 from botapp.models import BotUser
 from manager.models import Manager
 from driver.models import Driver
+from transactions.models import Transaction
 import logging
+from django.db.models import Q
+from django.db.models.functions import Lower
+from django.core.exceptions import ValidationError
 
+
+class DbResponse:
+    def __init__(self, success: bool=False, message: str = None, data: dict = None):
+        self.success = success
+        self.message = message
+        self.data = data
+    
 
 class DBCommands:
     # yangi user yaratish yoki userni olish
@@ -51,30 +62,228 @@ class DBCommands:
             return None
 
     @sync_to_async
-    def get_drivers_data(self, page: int = 1, page_size: int = 1):
+    def get_drivers_data(self, page: int = 1, page_size: int = 10):
         offset = (page - 1) * page_size
         return list(
             Driver.objects.values(
-                "id", "full_name", "phone_number", "car_model", "car_plate", "balance"
-            ).order_by("id")[
-                offset : offset + page_size
-            ]
+                "id", "full_name", "phone_number", "car_model", "car_plate", "balance", "tariff"
+            ).order_by("id")[offset : offset + page_size]
         )
     
 
     @sync_to_async
+    def search_drivers(self, search_query: str):
+        return list(
+            Driver.objects.filter(
+                Q(full_name__icontains=search_query)
+                | Q(phone_number__icontains=search_query)
+                | Q(car_model__icontains=search_query)
+                | Q(car_plate__icontains=search_query)
+                | Q(tariff__icontains=search_query)
+            )
+            .values(
+                "id", "full_name", "phone_number", "car_model", "car_plate", "balance", "tariff"
+            )
+            .order_by(Lower("full_name"))
+        )
+    
+    @sync_to_async
+    def check_phone_number_exists(self, phone_number: str):
+        phone_number_exists = Driver.objects.filter(phone_number=phone_number).exists()
+        if phone_number_exists:
+            return DbResponse(success=False, message="Bu telefon raqam allaqachon ro'yxatdan o'tgan", data=None)
+        return DbResponse(success=True, message="Telefon raqam bo'sh", data=None)
+    
+    @sync_to_async
+    def check_car_plate(self, car_plate: str):
+        car_plate_exists = Driver.objects.filter(car_plate=car_plate.upper()).exists()
+        if car_plate_exists:
+            return DbResponse(success=False, message="Bu avtomobil raqami allaqachon ro'yxatdan o'tgan", data=None)
+        return DbResponse(success=True, message="Avtomobil raqami bo'sh", data=None)
+
+    @sync_to_async
+    def add_new_driver(
+        self, full_name: str, phone_number: str, car_model: str, car_plate: str, tariff: str
+    ):
+        try:
+            driver = Driver.objects.create(
+                full_name=full_name,
+                phone_number=phone_number,
+                car_model=car_model,
+                car_plate=car_plate,
+                tariff=tariff,
+            )
+            return DbResponse(success=True, message="Yangi haydovchi muvaffaqiyatli qo'shildi", data={"driver_id": driver.id})
+        
+        except ValidationError as e:
+            print(e.message_dict)
+            if "phone_number" in e.message_dict:
+                logging.error(f"Phone number {phone_number} already exists")
+                return DbResponse(success=False, message="Bu telefon raqam allaqachon ro'yxatdan o'tgan", data=None)
+            if "car_plate" in e.message_dict:
+                logging.error(f"Car plate {car_plate} already exists")
+                return DbResponse(success=False, message="Bu avtomobil raqami allaqachon ro'yxatdan o'tgan", data=None)
+            return DbResponse(success=False, message="Xatolik sodir bo'ldi", data=None)
+
+        except Exception as e:
+            logging.error(f"Error adding new driver: {e}")
+            return DbResponse(success=False, message="Xatolik sodir bo'ldi", data=None)
+        
+
+    @sync_to_async
     def get_driver(self, driver_id: int):
         try:
-            driver = Driver.objects.filter(id=driver_id).values(
-                "id", "full_name", "phone_number", "car_model", "car_plate", "balance"
-            ).first()
+            driver = (
+                Driver.objects.filter(id=driver_id)
+                .values(
+                    "id",
+                    "full_name",
+                    "phone_number",
+                    "car_model",
+                    "car_plate",
+                    "balance",
+                    "tariff",
+                    "created_at",
+                    "updated_at",
+                )
+                .first()
+            )
+
+            if driver:
+                return DbResponse(success=True, message="Haydovchi ma'lumotlari", data=driver)
+            else:
+                logging.error(f"Driver with id {driver_id} does not exist")
+                return DbResponse(success=False, message="Haydovchi topilmadi", data=None)
+            
+
+        except Exception as e:
+            logging.error(f"Error getting driver: {e}")
+            return DbResponse(success=False, message="Xatolik sodir bo'ldi", data=None)
+        
+    @sync_to_async
+    def get_driver_by_car_plate(self, car_plate: str):
+        try:
+            driver = (
+                Driver.objects.filter(car_plate=car_plate)
+                .values(
+                    "id",
+                    "full_name",
+                    "phone_number",
+                    "car_model",
+                    "car_plate",
+                    "balance",
+                    "tariff",
+                )
+                .first()
+            )
 
             if driver:
                 return driver
             else:
-                logging.error(f"Driver with id {driver_id} does not exist")
+                logging.error(f"Driver with car plate {car_plate} does not exist")
                 return None
 
         except Exception as e:
             logging.error(f"Error getting driver: {e}")
             return None
+        
+    @sync_to_async
+    def delete_driver(self, driver_id: int):
+        try:
+            driver = Driver.objects.get(id=driver_id)
+            driver.delete()
+            return True
+        except Driver.DoesNotExist:
+            logging.error(f"Driver with id {driver_id} does not exist")
+            return False
+        except Exception as e:
+            logging.error(f"Error deleting driver: {e}")
+            return False
+        
+    @sync_to_async
+    def edit_driver_full_name(self, driver_id: int, full_name: str):
+        try:
+            driver = Driver.objects.get(id=driver_id)
+            driver.full_name = full_name
+            driver.save()
+            return True
+        except Driver.DoesNotExist:
+            logging.error(f"Driver with id {driver_id} does not exist")
+            return False
+        except Exception as e:
+            logging.error(f"Error editing driver full name: {e}")
+            return False
+    
+
+    @sync_to_async
+    def edit_driver_phone_number(self, driver_id: int, phone_number: str):
+        try:
+            driver = Driver.objects.get(id=driver_id)
+            driver.phone_number = phone_number
+            driver.save()
+            return True
+        except Driver.DoesNotExist:
+            logging.error(f"Driver with id {driver_id} does not exist")
+            return False
+        except Exception as e:
+            logging.error(f"Error editing driver phone number: {e}")
+            return False
+    
+
+    @sync_to_async
+    def edit_driver_car_model(self, driver_id: int, car_model: str):
+        try:
+            driver = Driver.objects.get(id=driver_id)
+            driver.car_model = car_model
+            driver.save()
+            return True
+        except Driver.DoesNotExist:
+            logging.error(f"Driver with id {driver_id} does not exist")
+            return False
+        except Exception as e:
+            logging.error(f"Error editing driver car model: {e}")
+            return False
+    
+
+    @sync_to_async
+    def edit_driver_car_plate(self, driver_id: int, car_plate: str):
+        try:
+            driver = Driver.objects.get(id=driver_id)
+            driver.car_plate = car_plate
+            driver.save()
+            return True
+        except Driver.DoesNotExist:
+            logging.error(f"Driver with id {driver_id} does not exist")
+            return False
+        except Exception as e:
+            logging.error(f"Error editing driver car plate: {e}")
+            return False
+        
+    @sync_to_async
+    def edit_driver_tariff(self, driver_id: int, tariff: str):
+        try:
+            driver = Driver.objects.get(id=driver_id)
+            driver.tariff = tariff
+            driver.save()
+            return True
+        except Driver.DoesNotExist:
+            logging.error(f"Driver with id {driver_id} does not exist")
+            return False
+        except Exception as e:
+            logging.error(f"Error editing driver tariff: {e}")
+            return False
+
+    
+    @sync_to_async
+    def add_balance(self, driver_id: int, amount: int):
+        try:
+            driver = Driver.objects.get(id=driver_id)
+            Transaction.objects.create(driver=driver, amount=amount, description="Admin tomonidan hisob to'ldirilishi")
+            logging.info(f"Balance added to driver with id {driver_id}")
+            return True
+        except Driver.DoesNotExist:
+            logging.error(f"Driver with id {driver_id} does not exist")
+            return False
+        except Exception as e:
+            logging.error(f"Error adding balance: {e}")
+            return False

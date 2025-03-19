@@ -1,46 +1,44 @@
 from aiogram import types
 from bot.loader import dp, db
-from bot.keyboards.inline import admin_menu_cd, admin_menu_kb
-from bot.keyboards.inline import drivers_pagination_cd, drivers_pagination_kb
 from bot.filters import IsAdmin
+from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
 
 
-@dp.callback_query_handler(admin_menu_cd.filter(action="drivers"), IsAdmin())
-async def show_drivers(call: types.CallbackQuery):
-    drivers_data = await db.get_drivers_data()
-    drivers_text = "".join(
-        [
-            f"<b>{idx}) {driver['full_name']}</b> - {driver['phone_number']}\n"
-            for idx, driver in enumerate(drivers_data, start=1)
+
+
+@dp.message_handler(IsAdmin(), text="Haydovchilar🚖")
+async def show_drivers(message: types.Message):
+    await message.answer("Haydovchilar", reply_markup=types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(text="Qidirish", switch_inline_query_current_chat="")
+            ]
         ]
-    )
-    if not drivers_text:
-        drivers_text = "Hozircha haydovchilar ro'yxati bo'sh."
-    await call.message.edit_text(
-        text="Haydovchilar ro'yxati:\n\n" + drivers_text,
-        reply_markup=drivers_pagination_kb(drivers_data, page=1)
-    )
+    ))
 
 
-@dp.callback_query_handler(drivers_pagination_cd.filter(), IsAdmin())
-async def show_drivers_page(call: types.CallbackQuery, callback_data: dict):
-    page = int(callback_data.get("page", 1))
-    drivers_data = await db.get_drivers_data(page=page)
-    drivers_text = "".join(
-        [
-            f"<b>{idx}) {driver['full_name']}</b> - {driver['phone_number']}\n"
-            for idx, driver in enumerate(drivers_data, start=1)
-        ]
-    )
-    if not drivers_text:
-        drivers_text = "Hozircha haydovchilar ro'yxati bo'sh."
+@dp.inline_handler(IsAdmin())
+async def inline_search(query: types.InlineQuery):
+    text = query.query.strip()
     
-    await call.message.edit_text(
-        text="Haydovchilar ro'yxati:\n\n" + drivers_text,
-        reply_markup=drivers_pagination_kb(drivers_data, page)
-    )
-
-
-@dp.callback_query_handler(IsAdmin(), text="main_menu", state="*")
-async def back_to_admin_menu(call: types.CallbackQuery):
-    await call.message.edit_text("Asosiy menyuga qaytdingiz.", reply_markup=admin_menu_kb)
+    if not text:
+        drivers = await db.get_drivers_data()
+    
+    # Search drivers in the database
+    results = []
+    drivers = await db.search_drivers(text)
+    
+    for driver in drivers:
+        results.append(
+            InlineQueryResultArticle(
+                id=str(driver['id']),
+                title=driver['full_name'],
+                description=f"{driver['phone_number']}\n{driver['car_model']} - {driver['car_plate']}\nTarif: {driver['tariff']}",
+                input_message_content=InputTextMessageContent(
+                    message_text=f"🚖 {driver['car_plate']}"
+                ),
+            )
+        )
+    # Send results
+    await query.answer(results, cache_time=1)
+    

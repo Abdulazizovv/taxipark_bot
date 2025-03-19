@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'service',
     'manager',
     'service_category',
+    'transactions',
 ]
 
 MIDDLEWARE = [

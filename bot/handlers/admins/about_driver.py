@@ -1,11 +1,24 @@
 from aiogram import types
 from bot.loader import dp, db
-from bot.keyboards.inline import driver_cd
 from bot.filters import IsAdmin
+from aiogram.dispatcher.filters import Text
+from bot.keyboards.inline import edit_driver_detail_kb
 
 
-@dp.callback_query_handler(IsAdmin(), driver_cd.filter())
-async def show_driver_info(call: types.CallbackQuery, callback_data: dict):
-    driver_id = int(callback_data.get("driver_id"))
-    driver = await db.get_driver(driver_id=driver_id)
-    await call.message.answer(driver)
+@dp.message_handler(IsAdmin(), Text(startswith="🚖"))
+async def driver_details(message: types.Message):
+    car_plate = message.text.split("🚖")[1].strip()
+    driver = await db.get_driver_by_car_plate(car_plate)
+    if driver:
+        await message.answer(
+            f"Haydovchi haqidagi ma'lumotlar:\n\n"
+            f"<b>👤 Ismi:</b> {driver['full_name']}\n"
+            f"<b>📞 Telefon raqami:</b> {driver['phone_number']}\n"
+            f"<b>🚗 Mashina modeli:</b> {driver['car_model']}\n"
+            f"<b>🚖 Mashina raqami:</b> {driver['car_plate']}\n"
+            f"<b>📦 Tarifi:</b> {driver['tariff']}\n"
+            f"<b>💰 Balansi:</b> {driver['balance']} so'm",
+            reply_markup=edit_driver_detail_kb(driver["id"]),
+        )
+    else:
+        await message.answer("Haydovchi topilmadi!")
