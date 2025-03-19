@@ -6,3 +6,8 @@ from . import driver_balance
 from . import back_to_section
 from . import new_driver
 from . import submit_new_driver
+from . import show_services
+from . import edit_service
+from . import add_service
+from . import submit_service
+from . import service

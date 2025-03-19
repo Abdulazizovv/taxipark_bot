@@ -2,6 +2,8 @@ from asgiref.sync import sync_to_async
 from botapp.models import BotUser
 from manager.models import Manager
 from driver.models import Driver
+from service.models import Service
+from service_category.models import ServiceCategory
 from transactions.models import Transaction
 import logging
 from django.db.models import Q
@@ -287,3 +289,191 @@ class DBCommands:
         except Exception as e:
             logging.error(f"Error adding balance: {e}")
             return False
+    
+    #==================== Service Categories ====================
+
+    @sync_to_async
+    def get_all_category_services(self):
+        data = list(
+            ServiceCategory.objects.values(
+                "id", "name", "description"
+            ).order_by("id")
+        )
+        if data:
+            return DbResponse(success=True, message="Servis kategoriyalari ro'yxati", data=data)
+        else:
+            return DbResponse(success=False, message="Servis kategoriyalari topilmadi", data=None)
+        
+    @sync_to_async
+    def service_category_get_or_create(self, name: str):
+        try:
+            category, created = ServiceCategory.objects.get_or_create(name=name)
+            return DbResponse(success=True, message="Servis kategoriya muvaffaqiyatli qo'shildi", data={"category_id": category.id, "created": created})
+        except Exception as e:
+            logging.error(f"Error creating service category: {e}")
+            return DbResponse(success=False, message="Servis kategoriya qismida xatolik!", data=None)
+        
+    @sync_to_async
+    def exclude_service_categories(self, category_ids: list):
+        data = list(ServiceCategory.objects.exclude(id__in=category_ids).values("id", "name").order_by("id"))
+        if data:
+            return DbResponse(success=True, message="Servis kategoriyalari ro'yxati", data=data)
+        else:
+            return DbResponse(success=False, message="Servis kategoriyalari topilmadi", data=None)
+
+    
+    # ==================== Services ====================
+    
+    @sync_to_async
+    def get_all_services(self):
+        
+        data = list(
+            Service.objects.values(
+                "id", "phone_number", "title", "description", "created_at", "updated_at"
+            ).order_by("id")
+        )
+        if data:
+            return DbResponse(success=True, message="Servislar ro'yxati", data=data)
+        else:
+            return DbResponse(success=False, message="Servislar topilmadi", data=None)
+    
+
+    @sync_to_async
+    def create_new_service(self, title, description: str|None, phone_number: str, category_ids: list):
+        try:
+            service = Service.objects.create(title=title, description=description, phone_number=phone_number)
+            service.category.set(category_ids)
+            return DbResponse(success=True, message="Yangi servis muvaffaqiyatli qo'shildi", data={"service_id": service.id})
+        except Exception as e:
+            logging.error(f"Error creating new service: {e}")
+            return DbResponse(success=False, message="Servis qo'shishda xatolik sodir bo'ldi", data=None)
+
+    @sync_to_async
+    def get_service_by_id(self, id: str):
+        try:
+            service = Service.objects.filter(id=id)
+            if service.exists():
+                data = {
+                    "id": service.values().first()["id"],
+                    "phone_number": service.values().first()["phone_number"],
+                    "title": service.values().first()["title"],
+                    "categories": [category.name for category in service.first().category.all()],
+                    "description": service.values().first()["description"],
+                    "created_at": service.values().first()["created_at"],
+                    "updated_at": service.values().first()["updated_at"],
+                }
+                return DbResponse(success=True, message="Servis ma'lumotlari", data=data)
+            else:
+                return DbResponse(success=False, message="Servis topilmadi", data=None)
+            
+
+        except Exception as e:
+            logging.error(f"Error getting service: {e}")
+            return DbResponse(success=False, message="Xatolik sodir bo'ldi", data=None)
+
+
+    @sync_to_async
+    def get_service_by_title(self, title: str):
+        try:
+            service = Service.objects.filter(title=title)
+            if service.exists():
+                data = {
+                    "id": service.values().first()["id"],
+                    "phone_number": service.values().first()["phone_number"],
+                    "title": service.values().first()["title"],
+                    "categories": [category.name for category in service.first().category.all()],
+                    "description": service.values().first()["description"],
+                    "created_at": service.values().first()["created_at"],
+                    "updated_at": service.values().first()["updated_at"],
+                }
+                return DbResponse(success=True, message="Servis ma'lumotlari", data=data)
+            else:
+                return DbResponse(success=False, message="Servis topilmadi", data=None)
+            
+
+        except Exception as e:
+            logging.error(f"Error getting service: {e}")
+            return DbResponse(success=False, message="Xatolik sodir bo'ldi", data=None)
+    
+
+    @sync_to_async
+    def check_service_title_exists(self, title: str):
+        title_exists = Service.objects.filter(title=title).exists()
+        if title_exists:
+            return DbResponse(success=False, message="Bu nom bilan servis allaqachon ro'yxatdan o'tgan! Boshqa nom kiriting.", data=None)
+        return DbResponse(success=True, message="Servis nomi bo'sh", data=None)
+    
+
+    # ==================== Edit Service ====================
+
+    @sync_to_async
+    def delete_service(self, service_id: int):
+        try:
+            service = Service.objects.get(id=service_id)
+            service.delete()
+            return DbResponse(success=True, message="Servis muvaffaqiyatli o'chirildi", data=None)
+        except Service.DoesNotExist:
+            logging.error(f"Service with id {service_id} does not exist")
+            return DbResponse(success=False, message="Servis topilmadi", data=None)
+        except Exception as e:
+            logging.error(f"Error deleting service: {e}")
+            return DbResponse(success=False, message="Noma'lum xatolik sodir bo'ldi", data=None)
+
+
+    @sync_to_async
+    def edit_service_title(self, service_id: int, title: str):
+        try:
+            service = Service.objects.get(id=service_id)
+            service.title = title
+            service.save()
+            return DbResponse(success=True, message="Servis nomi muvaffaqiyatli o'zgartirildi", data=None)
+        except Service.DoesNotExist:
+            logging.error(f"Service with id {service_id} does not exist")
+            return DbResponse(success=False, message="Servis topilmadi", data=None)
+        except Exception as e:
+            logging.error(f"Error editing service title: {e}")
+            return DbResponse(success=False, message="Noma'lum xatolik sodir bo'ldi", data=None)
+    
+
+    @sync_to_async
+    def edit_service_description(self, service_id: int, description: str):
+        try:
+            service = Service.objects.get(id=service_id)
+            service.description = description
+            service.save()
+            return DbResponse(success=True, message="Servis haqida ma'lumot muvaffaqiyatli o'zgartirildi", data=None)
+        except Service.DoesNotExist:
+            logging.error(f"Service with id {service_id} does not exist")
+            return DbResponse(success=False, message="Servis topilmadi", data=None)
+        except Exception as e:
+            logging.error(f"Error editing service description: {e}")
+            return DbResponse(success=False, message="Noma'lum xatolik sodir bo'ldi", data=None)
+    
+
+    @sync_to_async
+    def edit_service_phone_number(self, service_id: int, phone_number: str):
+        try:
+            service = Service.objects.get(id=service_id)
+            service.phone_number = phone_number
+            service.save()
+            return DbResponse(success=True, message="Servis telefon raqami muvaffaqiyatli o'zgartirildi", data=None)
+        except Service.DoesNotExist:
+            logging.error(f"Service with id {service_id} does not exist")
+            return DbResponse(success=False, message="Servis topilmadi", data=None)
+        except Exception as e:
+            logging.error(f"Error editing service phone number: {e}")
+            return DbResponse(success=False, message="Noma'lum xatolik sodir bo'ldi", data=None)
+        
+    
+    @sync_to_async
+    def edit_service_category(self, service_id: int, category_ids: list):
+        try:
+            service = Service.objects.get(id=service_id)
+            service.category.set(category_ids)
+            return DbResponse(success=True, message="Servis kategoriyasi muvaffaqiyatli o'zgartirildi", data=None)
+        except Service.DoesNotExist:
+            logging.error(f"Service with id {service_id} does not exist")
+            return DbResponse(success=False, message="Servis topilmadi", data=None)
+        except Exception as e:
+            logging.error(f"Error editing service category: {e}")
+            return DbResponse(success=False, message="Noma'lum xatolik sodir bo'ldi", data=None)
