@@ -1,14 +1,28 @@
-FROM python:3.11
+FROM python:3.12.3-alpine
 
 
-WORKDIR /app
+# RUN apk update \
+#     && apk add --no-cache \
+#     build-base \
+#     mariadb-dev \
+#     libffi-dev \
+#     python3-dev \
+#     && pip install --upgrade pip \
+#     && rm -rf /var/cache/apk/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
+WORKDIR /usr/src/app
 
 
-EXPOSE 8000
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 
-CMD ["sh", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
+
+COPY ./requirements.txt /usr/src/app/requirements.txt
+
+RUN pip install --no-cache-dir --upgrade -r\
+    /usr/src/app/requirements.txt
+    
+COPY . /usr/src/app/
+
+RUN python manage.py migrate
+
