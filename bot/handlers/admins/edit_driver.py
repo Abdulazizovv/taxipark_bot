@@ -4,9 +4,10 @@ from bot.loader import dp, db
 from bot.keyboards.inline import driver_detail_callback, edit_driver_detail_kb
 from bot.keyboards.inline.edit_driver import edit_driver_info_kb, edit_driver_detail_cb
 from aiogram.dispatcher import FSMContext
+from bot.filters import IsAdmin
 
 
-@dp.callback_query_handler(driver_detail_callback.filter(action="edit"))
+@dp.callback_query_handler(IsAdmin(), driver_detail_callback.filter(action="edit"))
 async def edit_driver(call: types.CallbackQuery, callback_data: dict):
     driver_id = callback_data.get("driver_id")
     driver = await db.get_driver(driver_id=driver_id)
@@ -26,7 +27,7 @@ async def edit_driver(call: types.CallbackQuery, callback_data: dict):
     )
 
 
-@dp.callback_query_handler(edit_driver_detail_cb.filter(action="back"))
+@dp.callback_query_handler(IsAdmin(), edit_driver_detail_cb.filter(action="back"))
 async def back_to_driver_detail(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
     driver_id = callback_data.get("driver_id")
     driver = await db.get_driver(driver_id=driver_id)
@@ -46,7 +47,7 @@ async def back_to_driver_detail(call: types.CallbackQuery, callback_data: dict, 
     )
 
 
-@dp.callback_query_handler(driver_detail_callback.filter(action="delete"))
+@dp.callback_query_handler(IsAdmin(), driver_detail_callback.filter(action="delete"))
 async def delete_driver(call: types.CallbackQuery, callback_data: dict):
     driver_id = callback_data.get("driver_id")
     if await db.delete_driver(driver_id=driver_id):
@@ -57,7 +58,7 @@ async def delete_driver(call: types.CallbackQuery, callback_data: dict):
 
 
 
-@dp.callback_query_handler(edit_driver_detail_cb.filter(action="edit_full_name"))
+@dp.callback_query_handler(IsAdmin(), edit_driver_detail_cb.filter(action="edit_full_name"))
 async def edit_driver_full_name(
     call: types.CallbackQuery, callback_data: dict, state: FSMContext
 ):
@@ -66,7 +67,7 @@ async def edit_driver_full_name(
     await state.set_state("admin:edit_driver_full_name")
 
 
-@dp.message_handler(state="admin:edit_driver_full_name")
+@dp.message_handler(IsAdmin(), state="admin:edit_driver_full_name")
 async def get_driver_full_name(message: types.Message, state: FSMContext):
     full_name = message.text
     data = await state.get_data()
@@ -92,7 +93,7 @@ async def get_driver_full_name(message: types.Message, state: FSMContext):
     await state.finish()
 
 
-@dp.callback_query_handler(edit_driver_detail_cb.filter(action="edit_phone_number"))
+@dp.callback_query_handler(IsAdmin(), edit_driver_detail_cb.filter(action="edit_phone_number"))
 async def edit_driver_phone_number(
     call: types.CallbackQuery, callback_data: dict, state: FSMContext
 ):
@@ -101,7 +102,7 @@ async def edit_driver_phone_number(
     await state.set_state("admin:edit_driver_phone_number")
 
 
-@dp.message_handler(state="admin:edit_driver_phone_number")
+@dp.message_handler(IsAdmin(), state="admin:edit_driver_phone_number")
 async def get_driver_phone_number(message: types.Message, state: FSMContext):
     phone_number = message.text
     data = await state.get_data()
@@ -123,25 +124,28 @@ async def get_driver_phone_number(message: types.Message, state: FSMContext):
             reply_markup=edit_driver_info_kb(driver_id),
         )
     else:
-        await message.answer("Xatolik yuz berdi!")
+        await message.answer("Bunday telefon raqam allaqachon ro'yxatdan o'tgan!\n"
+                             "Boshqa raqam kiriting.")
+        await state.set_state("admin:edit_driver_phone_number")
+        return
     await state.finish()
 
 
-@dp.callback_query_handler(edit_driver_detail_cb.filter(action="edit_car_model"))
+@dp.callback_query_handler(IsAdmin(), edit_driver_detail_cb.filter(action="edit_car_model"))
 async def edit_driver_car_model(
     call: types.CallbackQuery, callback_data: dict, state: FSMContext
 ):
     await call.message.edit_text("Mashina modelini kiriting:")
     await state.update_data(driver_id=callback_data.get("driver_id"))
-    await state.set_state("admin:edit_driver_phone_number")
+    await state.set_state("admin:edit_driver_car_model")
 
 
-@dp.message_handler(state="admin:edit_driver_phone_number")
+@dp.message_handler(IsAdmin(), state="admin:edit_driver_car_model")
 async def get_driver_car_model(message: types.Message, state: FSMContext):
     car_model = message.text
     data = await state.get_data()
     driver_id = data.get("driver_id")
-    if await db.edit_driver_phone_number(driver_id=driver_id, car_model=car_model):
+    if await db.edit_driver_car_model(driver_id=driver_id, car_model=car_model):
         driver = await db.get_driver(driver_id=driver_id)
         if not driver.success:
             await message.answer(driver.message)
@@ -162,7 +166,7 @@ async def get_driver_car_model(message: types.Message, state: FSMContext):
     await state.finish()
 
 
-@dp.callback_query_handler(edit_driver_detail_cb.filter(action="edit_car_plate"))
+@dp.callback_query_handler(IsAdmin(), edit_driver_detail_cb.filter(action="edit_car_plate"))
 async def edit_driver_car_plate(
     call: types.CallbackQuery, callback_data: dict, state: FSMContext
 ):
@@ -171,7 +175,7 @@ async def edit_driver_car_plate(
     await state.set_state("admin:edit_driver_car_plate")
 
 
-@dp.message_handler(state="admin:edit_driver_car_plate")
+@dp.message_handler(IsAdmin(), state="admin:edit_driver_car_plate")
 async def get_driver_car_model(message: types.Message, state: FSMContext):
     car_plate = message.text
     data = await state.get_data()
@@ -197,14 +201,14 @@ async def get_driver_car_model(message: types.Message, state: FSMContext):
     await state.finish()
 
 
-@dp.callback_query_handler(edit_driver_detail_cb.filter(action="edit_tariff"))
+@dp.callback_query_handler(IsAdmin(), edit_driver_detail_cb.filter(action="edit_tariff"))
 async def edit_driver_tariff(
     call: types.CallbackQuery, callback_data: dict, state: FSMContext
 ):
     await call.message.edit_text("Tarifni tanlang:", reply_markup=edit_driver_tariff_kb(driver_id=callback_data.get("driver_id")))
 
 
-@dp.callback_query_handler(edit_driver_detail_cb.filter(action="delete"))
+@dp.callback_query_handler(IsAdmin(), edit_driver_detail_cb.filter(action="delete"))
 async def delete_driver(call: types.CallbackQuery, callback_data: dict):
     driver_id = callback_data.get("driver_id")
     if await db.delete_driver(driver_id=driver_id):
@@ -214,7 +218,7 @@ async def delete_driver(call: types.CallbackQuery, callback_data: dict):
     await call.message.delete()
     
 
-@dp.callback_query_handler(edit_driver_tariff_cb.filter())
+@dp.callback_query_handler(IsAdmin(), edit_driver_tariff_cb.filter())
 async def edit_driver_tariff_action(call: types.CallbackQuery, callback_data: dict):
     driver_id = callback_data.get("driver_id")
     action = callback_data.get("action")
@@ -238,7 +242,7 @@ async def edit_driver_tariff_action(call: types.CallbackQuery, callback_data: di
         await call.message.edit("Xatolik yuz berdi!")
 
 
-@dp.callback_query_handler(edit_driver_tariff_cb.filter(action="back"))
+@dp.callback_query_handler(IsAdmin(), edit_driver_tariff_cb.filter(action="back"))
 async def back_to_edit_driver(call: types.CallbackQuery, callback_data: dict, state: FSMContext):
     driver_id = callback_data.get("driver_id")
     driver = await db.get_driver(driver_id=driver_id)

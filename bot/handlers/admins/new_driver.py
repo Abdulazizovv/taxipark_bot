@@ -3,9 +3,10 @@ from bot.loader import dp, db
 from aiogram.dispatcher import FSMContext
 from bot.keyboards.default import back_kb
 from bot.keyboards.inline import submit_new_driver_kb
+from bot.filters import IsAdmin
 
 
-@dp.message_handler(text="Yangi haydovchi➕", state="*")
+@dp.message_handler(IsAdmin(), text="Yangi haydovchi➕", state="*")
 async def new_driver(message: types.Message, state: FSMContext):
     await state.finish()
 
@@ -23,7 +24,7 @@ async def new_driver_name(message: types.Message, state: FSMContext):
     await state.set_state("new_driver_number")
 
 
-@dp.message_handler(state="new_driver_number")
+@dp.message_handler(IsAdmin(), state="new_driver_number")
 async def new_driver_number(message: types.Message, state: FSMContext):
     driver_number = message.text
 
@@ -48,7 +49,7 @@ async def new_driver_car_model(message: types.Message, state: FSMContext):
     await state.set_state("new_driver_car_number")
 
 
-@dp.message_handler(state="new_driver_car_number")
+@dp.message_handler(IsAdmin(), state="new_driver_car_number")
 async def new_driver_car_number(message: types.Message, state: FSMContext):
     car_number = message.text
 
@@ -79,7 +80,7 @@ async def new_driver_car_number(message: types.Message, state: FSMContext):
     await state.set_state("new_driver_tariff")
 
 
-@dp.message_handler(state="new_driver_tariff")
+@dp.message_handler(IsAdmin(), state="new_driver_tariff")
 async def new_driver_tariff(message: types.Message, state: FSMContext):
     tariff = message.text
 

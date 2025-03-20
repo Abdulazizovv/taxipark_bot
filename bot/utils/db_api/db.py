@@ -546,3 +546,23 @@ class DBCommands:
         if data:
             return DbResponse(success=True, message="Tranzaksiyalar ro'yxati", data=data)
         return DbResponse(success=False, message="Tranzaksiyalar topilmadi", data=None)
+    
+
+    # ==================== Service Manager ====================
+    @sync_to_async
+    def get_user_services(self, user_id: str) -> DbResponse:
+        try:
+            user = BotUser.objects.get(user_id=user_id)
+            services = user.employee.services.all()
+            data = list(
+                services.values(
+                    "id", "phone_number", "title", "description", "created_at", "updated_at"
+                ).order_by("id")
+            )
+            return DbResponse(success=True, message="Servislar ro'yxati", data=data)
+        except BotUser.DoesNotExist:
+            logging.error(f"User with id {user_id} does not exist")
+            return DbResponse(success=False, message="Foydalanuvchi topilmadi", data=None)
+        except Exception as e:
+            logging.error(f"Error getting user services: {e}")
+            return DbResponse(success=False, message="Noma'lum xatolik sodir bo'ldi", data=None)

@@ -7,9 +7,10 @@ from bot.keyboards.inline.edit_service_section import (
     edit_service_section_cb,
 )
 from bot.keyboards.default import admin_menu_kb
+from bot.filters import IsAdmin
 
 
-@dp.callback_query_handler(service_edit_callback.filter(action="delete"), state="*")
+@dp.callback_query_handler(IsAdmin(), service_edit_callback.filter(action="delete"), state="*")
 async def delete_service(
     call: types.CallbackQuery, callback_data: dict, state: FSMContext
 ):
@@ -26,7 +27,7 @@ async def delete_service(
     )
 
 
-@dp.callback_query_handler(service_edit_callback.filter(action="edit"), state="*")
+@dp.callback_query_handler(IsAdmin(), service_edit_callback.filter(action="edit"), state="*")
 async def edit_service(
     call: types.CallbackQuery, callback_data: dict, state: FSMContext
 ):
@@ -51,7 +52,7 @@ async def edit_service(
     )
 
 
-@dp.callback_query_handler(edit_service_section_cb.filter(section="back"))
+@dp.callback_query_handler(IsAdmin(), edit_service_section_cb.filter(section="back"))
 async def back_to_service(
     call: types.CallbackQuery, callback_data: dict, state: FSMContext
 ):
@@ -73,7 +74,7 @@ async def back_to_service(
     await state.set_state("select_service")
 
 
-@dp.callback_query_handler(edit_service_section_cb.filter(section="name"))
+@dp.callback_query_handler(IsAdmin(), edit_service_section_cb.filter(section="name"))
 async def edit_service_name(
     call: types.CallbackQuery, callback_data: dict, state: FSMContext
 ):
@@ -82,7 +83,7 @@ async def edit_service_name(
     await state.update_data(service_id=callback_data.get("service_id"))
 
 
-@dp.message_handler(state="edit_service_name")
+@dp.message_handler(IsAdmin(), state="edit_service_name")
 async def get_service_name(message: types.Message, state: FSMContext):
     data = await state.get_data()
     service_name = message.text
@@ -97,7 +98,7 @@ async def get_service_name(message: types.Message, state: FSMContext):
     await state.finish()
 
 
-@dp.callback_query_handler(edit_service_section_cb.filter(section="description"))
+@dp.callback_query_handler(IsAdmin(), edit_service_section_cb.filter(section="description"))
 async def edit_service_description(
     call: types.CallbackQuery, callback_data: dict, state: FSMContext
 ):
@@ -106,7 +107,7 @@ async def edit_service_description(
     await state.update_data(service_id=callback_data.get("service_id"))
 
 
-@dp.message_handler(state="edit_service_description")
+@dp.message_handler(IsAdmin(), state="edit_service_description")
 async def get_service_description(message: types.Message, state: FSMContext):
     data = await state.get_data()
     service_description = message.text
@@ -121,7 +122,7 @@ async def get_service_description(message: types.Message, state: FSMContext):
     await state.finish()
 
 
-@dp.callback_query_handler(edit_service_section_cb.filter(section="phone"))
+@dp.callback_query_handler(IsAdmin(), edit_service_section_cb.filter(section="phone"))
 async def edit_service_phone(
     call: types.CallbackQuery, callback_data: dict, state: FSMContext
 ):
@@ -130,7 +131,7 @@ async def edit_service_phone(
     await state.update_data(service_id=callback_data.get("service_id"))
 
 
-@dp.message_handler(state="edit_service_phone")
+@dp.message_handler(IsAdmin(), state="edit_service_phone")
 async def get_service_phone(message: types.Message, state: FSMContext):
     data = await state.get_data()
     phone_number = message.text
