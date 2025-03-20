@@ -1,4 +1,5 @@
 from . import start
+from . import statistics
 from . import drivers
 from . import about_driver
 from . import edit_driver

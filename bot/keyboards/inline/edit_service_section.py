@@ -14,6 +14,9 @@ def edit_service_section_kb(service_id):
             ],
             [
                 InlineKeyboardButton(text="Telefon raqamini tahrirlash", callback_data=edit_service_section_cb.new(section="phone", service_id=service_id))
+            ],
+            [
+                InlineKeyboardButton(text="⬅️Orqaga", callback_data=edit_service_section_cb.new(section="back", service_id=service_id))
             ]
         ]
     )

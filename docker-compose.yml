@@ -1,6 +1,6 @@
 
 services:
-  bot:
+  taxiparkbot:
     build:
       context: .
     command: python manage.py app
@@ -9,7 +9,7 @@ services:
     env_file:
       - .env
   
-  web:
+  taxiparkweb:
     build:
       context: .
     command: python manage.py runserver 0.0.0.0:8000

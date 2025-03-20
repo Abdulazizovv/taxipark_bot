@@ -477,3 +477,72 @@ class DBCommands:
         except Exception as e:
             logging.error(f"Error editing service category: {e}")
             return DbResponse(success=False, message="Noma'lum xatolik sodir bo'ldi", data=None)
+        
+    
+    # ==================== Get statistics ====================
+    @sync_to_async
+    def get_users_stats(self):
+        all_users = BotUser.objects.count()
+        connected_users = BotUser.objects.exclude(employee=None).count()
+        manager_users = Manager.objects.filter(role="admin").count()
+        service_users = Manager.objects.filter(role="service").count()
+        return {
+            "all_users": all_users,
+            "connected_users": connected_users,
+            "manager_users": manager_users,
+            "service_users": service_users,
+        }
+
+    @sync_to_async
+    def get_drivers_stats(self):
+        drivers_count = Driver.objects.count()
+        active_drivers = Driver.objects.filter(is_deleted=None).count()
+        inactive_drivers = Driver.objects.exclude(is_deleted=None).count()
+        return {
+            "count": drivers_count,
+            "active_drivers": active_drivers,
+            "inactive_drivers": inactive_drivers,
+        }
+    
+    @sync_to_async
+    def get_services_stats(self):
+        services_count = Service.objects.count()
+        service_categories_count = ServiceCategory.objects.count()
+        return {
+            "count": services_count,
+            "category_count": service_categories_count,
+        }
+    
+    @sync_to_async
+    def get_transactions_stats(self):
+        transactions_count = Transaction.objects.count()
+        return {
+            "count": transactions_count,
+        }
+
+    @sync_to_async
+    def get_drivers_count(self):
+        return Driver.objects.count()
+    
+    @sync_to_async
+    def get_services_count(self):
+        return Service.objects.count()
+    
+    @sync_to_async
+    def get_service_categories_count(self):
+        return ServiceCategory.objects.count()
+    
+    @sync_to_async
+    def get_transactions_count(self):
+        return Transaction.objects.count()
+    
+    @sync_to_async
+    def get_all_transactions(self):
+        data = list(
+            Transaction.objects.values(
+                "id", "driver_id", "amount", "description", "created_at"
+            ).order_by("id")
+        )
+        if data:
+            return DbResponse(success=True, message="Tranzaksiyalar ro'yxati", data=data)
+        return DbResponse(success=False, message="Tranzaksiyalar topilmadi", data=None)
