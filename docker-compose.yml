@@ -1,22 +1,57 @@
 
+version: '3.8'
+
 services:
   taxiparkbot:
     build:
       context: .
     command: python manage.py app
     volumes:
-      - .:/app
+      - ./config:/usr/src/app/
+      - ./bot:/usr/src/app/bot
     env_file:
       - .env
-  
+    depends_on:
+      taxiparkbotdb:
+        condition: service_healthy
+    restart: always
+
   taxiparkweb:
     build:
       context: .
     command: python manage.py runserver 0.0.0.0:8000
+    container_name: django
     volumes:
-      - .:/app
+      - ./config:/usr/src/app/
+      - ./bot:/usr/src/app/bot
     ports:
       - "8000:8000"
     env_file:
       - .env
+    depends_on:
+      taxiparkbotdb:
+        condition: service_healthy
+    restart: always
+
+  taxiparkbotdb:
+    image: postgres:13
+    container_name: postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: taxipark
+    ports:
+      - "5454:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+volumes:
+  postgres_data:
+
     

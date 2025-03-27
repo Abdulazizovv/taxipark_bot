@@ -1,28 +1,17 @@
+# Use the official Python image
 FROM python:3.12.3-alpine
 
-
-# RUN apk update \
-#     && apk add --no-cache \
-#     build-base \
-#     mariadb-dev \
-#     libffi-dev \
-#     python3-dev \
-#     && pip install --upgrade pip \
-#     && rm -rf /var/cache/apk/*
-
+# Set the working directory inside the container
 WORKDIR /usr/src/app
 
-
+# Prevent Python from writing .pyc files and buffer output
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
+# Install dependencies
+COPY requirements.txt /usr/src/app/requirements.txt
+RUN pip install --no-cache-dir --upgrade -r /usr/src/app/requirements.txt
 
-COPY ./requirements.txt /usr/src/app/requirements.txt
-
-RUN pip install --no-cache-dir --upgrade -r\
-    /usr/src/app/requirements.txt
-    
-COPY . /usr/src/app/
-
-RUN python manage.py migrate
+# Copy the entire project into the container
+COPY ./config /usr/src/app/
 

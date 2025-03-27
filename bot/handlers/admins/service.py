@@ -3,9 +3,10 @@ from bot.loader import dp, db
 from aiogram.dispatcher import FSMContext
 from bot.keyboards.inline import service_edit_kb
 from bot.keyboards.default import admin_menu_kb
+from bot.filters import IsAdmin
 
 
-@dp.message_handler(content_types=types.ContentTypes.TEXT, state="select_service")
+@dp.message_handler(IsAdmin(), content_types=types.ContentTypes.TEXT, state="select_service")
 async def get_selected_service(message: types.Message, state: FSMContext):
     selected_service = message.text
     if message.text == "⬅️Orqaga":

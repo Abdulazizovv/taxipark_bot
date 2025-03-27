@@ -15,7 +15,7 @@ async def show_statistics(message: types.Message, state: FSMContext):
 
     text = f"<b>👤 Foydalanuvchilar:</b>\n" \
     f"Jami(botga start bosgan): {user_statistics['all_users']}\n"\
-    f"Admin va managerlar: {user_statistics['connected_users']}\n"\
+    f"Aktiv: {user_statistics['connected_users']}\n"\
     f"Adminlar: {user_statistics['manager_users']}\n"\
     f"Managerlar: {user_statistics['service_users']}\n\n"\
     f"<b>🚖 Haydovchilar:</b>\n" \

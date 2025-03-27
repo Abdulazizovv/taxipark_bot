@@ -64,12 +64,11 @@ class DBCommands:
             return None
 
     @sync_to_async
-    def get_drivers_data(self, page: int = 1, page_size: int = 10):
-        offset = (page - 1) * page_size
+    def get_drivers_data(self):
         return list(
             Driver.objects.values(
                 "id", "full_name", "phone_number", "car_model", "car_plate", "balance", "tariff"
-            ).order_by("id")[offset : offset + page_size]
+            ).order_by("id")
         )
     
 
@@ -130,7 +129,21 @@ class DBCommands:
         except Exception as e:
             logging.error(f"Error adding new driver: {e}")
             return DbResponse(success=False, message="Xatolik sodir bo'ldi", data=None)
-        
+    
+    @sync_to_async
+    def enought_driver_balance(self, driver_id: int, amount: int):
+        try:
+            driver = Driver.objects.get(id=driver_id)
+            if driver.balance >= amount:
+                return True
+            return False
+        except Driver.DoesNotExist:
+            logging.error(f"Driver with id {driver_id} does not exist")
+            return False
+        except Exception as e:
+            logging.error(f"Error checking driver balance: {e}")
+            return False
+
 
     @sync_to_async
     def get_driver(self, driver_id: int):
@@ -277,10 +290,10 @@ class DBCommands:
 
     
     @sync_to_async
-    def add_balance(self, driver_id: int, amount: int):
+    def add_balance(self, driver_id: int, amount: int, description: str|None = None):
         try:
             driver = Driver.objects.get(id=driver_id)
-            Transaction.objects.create(driver=driver, amount=amount, description="Admin tomonidan hisob to'ldirilishi")
+            Transaction.objects.create(driver=driver, amount=amount, description=description if description else "Admin tomondan balansni to'ldirish")
             logging.info(f"Balance added to driver with id {driver_id}")
             return True
         except Driver.DoesNotExist:
@@ -292,6 +305,23 @@ class DBCommands:
     
     #==================== Service Categories ====================
 
+    @sync_to_async
+    def get_service_category_by_name(self, name: str):
+        try:
+            category = ServiceCategory.objects.filter(name=name)
+            if category.exists():
+                data = {
+                    "id": category.values().first()["id"],
+                    "name": category.values().first()["name"],
+                    "description": category.values().first()["description"],
+                }
+                return DbResponse(success=True, message="Servis kategoriya ma'lumotlari", data=data)
+            else:
+                return DbResponse(success=False, message="Servis kategoriya topilmadi", data=None)
+        except Exception as e:
+            logging.error(f"Error getting service category: {e}")
+            return DbResponse(success=False, message="Noma'lum xatolik sodir bo'ldi", data=None)
+    
     @sync_to_async
     def get_all_category_services(self):
         data = list(

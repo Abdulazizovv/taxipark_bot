@@ -1,23 +1,10 @@
 from aiogram import types
 from bot.loader import dp, db
-from bot.filters import IsAdmin
+from bot.filters import IsService
 from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
 
 
-
-
-@dp.message_handler(IsAdmin(), text="Haydovchilar🚖")
-async def show_drivers(message: types.Message):
-    await message.answer("Haydovchilar", reply_markup=types.InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                types.InlineKeyboardButton(text="Qidirish", switch_inline_query_current_chat="")
-            ]
-        ]
-    ))
-
-
-@dp.inline_handler(IsAdmin(), state="*")
+@dp.inline_handler(IsService(), state="*")
 async def inline_search(query: types.InlineQuery):
     text = query.query.strip()
     
@@ -33,7 +20,7 @@ async def inline_search(query: types.InlineQuery):
             InlineQueryResultArticle(
                 id=str(driver['id']),
                 title=driver['full_name'],
-                description=f"{driver['phone_number']}\n{driver['car_model']} - {driver['car_plate']}\nTarif: {driver['tariff']}",
+                description=f"{driver['phone_number']}\n{driver['car_model']} - {driver['car_plate']}\nBalans: {driver['balance']}",
                 input_message_content=InputTextMessageContent(
                     message_text=f"🚖 {driver['car_plate']}"
                 ),
@@ -41,4 +28,3 @@ async def inline_search(query: types.InlineQuery):
         )
     # Send results
     await query.answer(results, cache_time=1)
-    
