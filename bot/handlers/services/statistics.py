@@ -214,20 +214,32 @@ async def download_transactions_excel(callback: types.CallbackQuery, state: FSMC
     ]
 
     df = pd.DataFrame(data)
+
+    service = await db.get_service_by_id(service_id)
+    if not service.success:
+        return await callback.answer(service.message, show_alert=True)
+    
+    service = service.data
     
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False, sheet_name="Transactions")
+        df.to_excel(writer, index=False, sheet_name=service["title"])
 
     output.seek(0)
 
     now = datetime.now().strftime("%d-%m-%Y %H-%M")
 
     try:
+        stat_data = await db.stats_for_service(service_id)
+        if not stat_data.success:
+            return await callback.answer(stat_data.message, show_alert=True)
+        stat_data = stat_data.data
         await callback.message.answer_document(
-            types.InputFile(output, filename=f"hisobot {now}.xlsx"),
-            caption="📊 Hisobotlar"
+            types.InputFile(output, filename=f"hisobot | {service['title']} |{now}.xlsx"),
+            caption=f"Jami amaliyotlar: {stat_data['total_transactions']} ta\n"
+                    f"Jami summa: {format_currency(abs(int(stat_data['total_amount'])))} so'm\n"
+                    f"Hujjat tayyorlangan vaqt: {now}"
         )
         await callback.answer()
     except Exception as e:
-        await callback.answer(f"Fayl yuborishda xatolik bo'ldi", show_alert=True)
+        await callback.answer(f"Fayl yuborishda xatolik bo'ldi.", show_alert=True)

@@ -55,7 +55,21 @@ async def add_balance(message: types.Message, state: FSMContext):
 
     balance: str = message.text
 
-    if balance.isdigit() and int(balance) > 0:
+    if balance.lstrip("-").isdigit():
+        balance = int(balance)        
+
+        if balance == 0:
+            await message.answer(
+                "<i>Summa 0 bo'lishi mumkin emas!</i>", parse_mode="HTML"
+            )
+            return
+        
+        if balance < 0:
+            await message.answer("Siz hisobdan mablag' ayirmoqdasiz!\n"
+                                 "Buning uchun izoh yozing!", reply_markup=back_kb)
+            await state.update_data(balance=balance)
+            await state.set_state("add_balance_comment")
+            return
 
         # balans to'ldirishni tasdiqlash
         await message.answer(
@@ -64,11 +78,11 @@ async def add_balance(message: types.Message, state: FSMContext):
                 inline_keyboard=[
                     [
                         types.InlineKeyboardButton(
-                            text="Ha",
+                            text="Ha✅",
                             callback_data=f"confirm_balance:{balance}:{driver_id}",
                         ),
                         types.InlineKeyboardButton(
-                            text="Yo'q", callback_data=f"cancel_balance:{driver_id}"
+                            text="Yo'q❌", callback_data=f"cancel_balance:{driver_id}"
                         ),
                     ]
                 ]
@@ -118,9 +132,10 @@ async def cancel_balance(call: types.CallbackQuery, state: FSMContext):
 async def confirm_balance(call: types.CallbackQuery, state: FSMContext):
     balance = int(call.data.split(":")[1])
     driver_id = int(call.data.split(":")[-1])
+    data = await state.get_data()
+    comment = data.get("comment")
 
-
-    driver = await db.add_balance(driver_id, balance)
+    driver = await db.add_balance(driver_id, balance, comment)
     if not driver:
         await call.message.answer("Nimadir xato bo'ldi!")
         return
@@ -146,3 +161,47 @@ async def confirm_balance(call: types.CallbackQuery, state: FSMContext):
     )
 
     await state.finish()
+
+
+@dp.message_handler(state="add_balance_comment")
+async def add_balance_comment(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+
+    driver_id = data.get("driver_id")
+
+    driver = await db.get_driver(driver_id)
+
+    if not driver.success:
+        await message.answer(driver.message)
+        return
+    driver = driver.data
+
+    if message.text == "◀️Orqaga":
+        await message.answer("Summani kiriting:", reply_markup=back_kb)
+        await state.set_state("add_balance")
+        return
+
+    comment = message.text
+    await state.update_data(comment=comment)
+    balance = data.get("balance")
+
+    # balans to'ldirishni tasdiqlash
+    await message.answer(
+        f"Balansni {format_currency(int(balance))} so'm ga o'zgartirishni tasdiqlaysizmi?",
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    types.InlineKeyboardButton(
+                        text="Ha✅",
+                        callback_data=f"confirm_balance:{balance}:{driver_id}",
+                    ),
+                    types.InlineKeyboardButton(
+                        text="Yo'q❌", callback_data=f"cancel_balance:{driver_id}"
+                    ),
+                ]
+            ]
+        ),
+    )
+
+
+

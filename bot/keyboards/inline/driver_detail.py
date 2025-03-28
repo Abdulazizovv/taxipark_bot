@@ -13,6 +13,9 @@ def edit_driver_detail_kb(driver_id: int):
             ],
             [
                 InlineKeyboardButton(text="Balansni to'ldirish💰", callback_data=driver_detail_callback.new(driver_id=driver_id, action="add_balance")),
+            ],
+            [
+                InlineKeyboardButton(text="Bosh menyu", callback_data="main_menu"),
             ]
         ]
     )

@@ -5,6 +5,7 @@ from bot.keyboards.inline import driver_detail_callback, edit_driver_detail_kb
 from bot.keyboards.inline.edit_driver import edit_driver_info_kb, edit_driver_detail_cb
 from aiogram.dispatcher import FSMContext
 from bot.filters import IsAdmin
+from bot.keyboards.default import admin_menu_kb
 
 
 @dp.callback_query_handler(IsAdmin(), driver_detail_callback.filter(action="edit"))
@@ -50,12 +51,38 @@ async def back_to_driver_detail(call: types.CallbackQuery, callback_data: dict, 
 @dp.callback_query_handler(IsAdmin(), driver_detail_callback.filter(action="delete"))
 async def delete_driver(call: types.CallbackQuery, callback_data: dict):
     driver_id = callback_data.get("driver_id")
-    if await db.delete_driver(driver_id=driver_id):
-        await call.message.answer("Haydovchi o'chirildi!")
-    else:
-        await call.message.answer("Xatolik yuz berdi!")
     await call.message.delete()
+    await call.message.answer("Haydovchini o'chirishni tasdiqlaysizmi?", reply_markup=types.InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                types.InlineKeyboardButton(text="Yo'q, bekor qilaman ❌", callback_data="cancel_delete_driver")
+            ],
+            [
+                types.InlineKeyboardButton(text="Ha, tasdiqlayman ✅", callback_data=f"delete_driver:{driver_id}")
+            ]
+        ]
+    ))
 
+
+@dp.callback_query_handler(IsAdmin(), lambda call: call.data.startswith("delete_driver:"), state="*")
+async def confirm_delete_driver(call: types.CallbackQuery, state: FSMContext):
+    await state.finish()
+    driver_id = call.data.split(":")[1]
+    await call.answer()
+    await call.message.delete()
+    if await db.delete_driver(driver_id=driver_id):
+        await call.message.answer("Haydovchi o'chirildi!", reply_markup=admin_menu_kb)
+        await state.finish()
+        return
+    await call.message.answer("Xatolik yuz berdi!", reply_markup=admin_menu_kb)
+
+
+@dp.callback_query_handler(IsAdmin(), driver_detail_callback.filter(action="cancel_delete_driver"), state="*")
+async def cancel_delete_driver(call: types.CallbackQuery, state: FSMContext):
+    await state.finish()
+    await call.message.delete()
+    await call.message.answer("O'chirish bekor qilindi!", reply_markup=admin_menu_kb)
+    return
 
 
 @dp.callback_query_handler(IsAdmin(), edit_driver_detail_cb.filter(action="edit_full_name"))

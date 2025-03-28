@@ -10,6 +10,7 @@ from django.db.models.functions import Lower
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.utils import timezone
+from django.db.models import Sum
 
 
 class DbResponse:
@@ -85,7 +86,7 @@ class DBCommands:
 
 
     @sync_to_async
-    def search_drivers(self, search_query: str):
+    def search_drivers(self, search_query: str, offset=0, limit=50):
         return list(
             Driver.active_drivers.filter(
                 Q(full_name__icontains=search_query)
@@ -103,7 +104,7 @@ class DBCommands:
                 "balance",
                 "tariff",
             )
-            .order_by(Lower("full_name"))
+            .order_by(Lower("full_name"))[offset : offset + limit]
         )
 
     @sync_to_async
@@ -343,7 +344,7 @@ class DBCommands:
                 driver=driver,
                 amount=amount,
                 description=(
-                    description if description else "Admin tomondan balansni to'ldirish"
+                    description if description else "Admin tomondan balansni to'ldirish" if amount > 0 else "Admin tomondan balansni kamaytirish"
                 ),
             )
             logging.info(f"Balance added to driver with id {driver_id}")
@@ -544,6 +545,26 @@ class DBCommands:
 
 
     # ==================== Get statistics ====================
+    @sync_to_async
+    def stats_for_service(self, service_id: int):
+        try:
+            service = Service.objects.get(id=service_id)
+            transactions = Transaction.objects.filter(service=service)
+            total_transactions = transactions.count()
+            total_amount = transactions.aggregate(total=Sum("amount"))["total"]
+            data =  {
+                "total_transactions": total_transactions,
+                "total_amount": total_amount,
+            }
+            return DbResponse(
+                success=True, message="Statistika", data=data
+            )
+        except Exception as e:
+            logging.error(f"Error getting stats: {e}")
+            return DbResponse(
+                success=False, message="Noma'lum xatolik sodir bo'ldi", data=None
+            )
+
     @sync_to_async
     def get_users_stats(self):
         all_users = BotUser.objects.count()

@@ -4,6 +4,14 @@ from bot.loader import dp
 from bot.keyboards.default import back_kb, admin_menu_kb
 
 
+
+@dp.callback_query_handler(lambda call: call.data == "main_menu", state="*")
+async def back_to_main_menu(call: types.CallbackQuery, state: FSMContext):
+    await call.message.edit_reply_markup()
+    await call.message.answer("Bosh menyu", reply_markup=admin_menu_kb)
+    await state.finish()
+
+
 @dp.message_handler(text="◀️Orqaga", state="*")
 async def back_to_section(message: types.Message, state: FSMContext):
     data = await state.get_data()

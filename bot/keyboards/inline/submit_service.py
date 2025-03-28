@@ -9,20 +9,20 @@ def submit_service_kb():
         inline_keyboard=[
             [
                 InlineKeyboardButton(
+                    text="Bekor qilish❌",
+                    callback_data=submit_service_cb.new(
+                        action="cancel"
+                    )
+                )
+            ],
+            [
+                InlineKeyboardButton(
                     text="Tasdiqlash✅",
                     callback_data=submit_service_cb.new(
                         action="submit"
                     )
                 )
             ],
-            [
-                InlineKeyboardButton(
-                    text="Bekor qilish❌",
-                    callback_data=submit_service_cb.new(
-                        action="cancel"
-                    )
-                )
-            ]
         ]
     )
     return kb

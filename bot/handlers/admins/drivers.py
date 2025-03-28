@@ -3,6 +3,8 @@ from bot.loader import dp, db
 from bot.filters import IsAdmin
 from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
 from bot.utils.main import format_currency
+from bot.keyboards.default import admin_menu_kb
+from aiogram.dispatcher import FSMContext
 
 
 @dp.message_handler(IsAdmin(), text="Haydovchilar🚖")
@@ -15,10 +17,24 @@ async def show_drivers(message: types.Message):
                     types.InlineKeyboardButton(
                         text="Qidirish", switch_inline_query_current_chat=""
                     )
+                ],
+                [
+                    types.InlineKeyboardButton(
+                        text="🔙 Orqaga",
+                        callback_data="back_to_admin_panel"
+                    )
                 ]
             ]
         ),
     )
+
+
+@dp.callback_query_handler(IsAdmin(), text="back_to_admin_panel", state="*")
+async def back_to_admin_panel(call: types.CallbackQuery, state: FSMContext):
+    await state.finish()
+    await call.message.delete()
+    await call.message.answer("Bosh menyu.", reply_markup=admin_menu_kb)
+    return
 
 
 @dp.inline_handler(IsAdmin(), state="*")
@@ -39,8 +55,8 @@ async def inline_search(query: types.InlineQuery):
         results.append(
             InlineQueryResultArticle(
                 id=str(driver["id"]),
-                title=driver["full_name"],
-                description=f"{driver['phone_number']}\n{driver['car_model']} - {driver['car_plate']}\nTarif: {driver['tariff']}\nBalans: {format_currency(int(driver['balance']))}",
+                title=driver["full_name"] + f" - {driver['phone_number']}",
+                description=f"{driver['car_model']} - {driver['car_plate']}\nBalans: {format_currency(int(driver['balance']))}\nTarif: {driver['tariff']}",
                 input_message_content=InputTextMessageContent(
                     message_text=f"🚖 {driver['car_plate']}"
                 ),
