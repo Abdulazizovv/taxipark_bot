@@ -129,6 +129,14 @@ async def back_to_services(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer()
         return await callback.message.answer(services.message)
     services = services.data
+
+    if len(services) == 1:
+        await callback.answer()
+        await state.finish()
+        await callback.message.answer("Bosh menyuga qaytdingiz!", reply_markup=service_admin_menu_kb)
+
+        return
+
     await callback.message.answer("Hisobotlarni ko'rish uchun servisni tanlang", reply_markup=select_service_keyboard(services))
     await state.set_state("transactions:select_service")
     await callback.answer()
