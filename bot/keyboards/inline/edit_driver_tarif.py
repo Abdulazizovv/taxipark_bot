@@ -16,6 +16,9 @@ def edit_driver_tariff_kb(driver_id):
                 InlineKeyboardButton(text="Premuim", callback_data=edit_driver_tariff_cb.new(driver_id=driver_id, action="premium")),
             ],
             [
+                InlineKeyboardButton(text="Business", callback_data=edit_driver_tariff_cb.new(driver_id=driver_id, action="business")),
+            ],
+            [
                 InlineKeyboardButton(text="Orqaga", callback_data=edit_driver_tariff_cb.new(driver_id=driver_id, action="back")),
             ]
         ]

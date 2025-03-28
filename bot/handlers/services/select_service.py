@@ -2,7 +2,6 @@ from aiogram import types
 from bot.loader import dp, db
 from aiogram.dispatcher import FSMContext
 from bot.filters import IsService
-from bot.keyboards.default.service import select_service_category_keyboard
 from bot.keyboards.default import service_admin_menu_kb
 from bot.keyboards.default import back_kb
 

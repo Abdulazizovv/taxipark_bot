@@ -1,5 +1,5 @@
 from django.db import models
-from service_category.models import ServiceCategory
+# from service_category.models import ServiceCategory
 
 
 # Servislar uchun model
@@ -7,7 +7,6 @@ class Service(models.Model):
     phone_number = models.CharField(max_length=20)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, null=True)
-    category = models.ManyToManyField(ServiceCategory, related_name="services")
     managers = models.ManyToManyField("manager.Manager", related_name="services")
 
     created_at = models.DateTimeField(auto_now_add=True)

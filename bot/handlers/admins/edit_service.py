@@ -10,7 +10,9 @@ from bot.keyboards.default import admin_menu_kb
 from bot.filters import IsAdmin
 
 
-@dp.callback_query_handler(IsAdmin(), service_edit_callback.filter(action="delete"), state="*")
+@dp.callback_query_handler(
+    IsAdmin(), service_edit_callback.filter(action="delete"), state="*"
+)
 async def delete_service(
     call: types.CallbackQuery, callback_data: dict, state: FSMContext
 ):
@@ -25,9 +27,12 @@ async def delete_service(
     await call.message.answer(
         "Servis muvaffaqiyatli o'chirildi.", reply_markup=admin_menu_kb
     )
+    await state.finish()
 
 
-@dp.callback_query_handler(IsAdmin(), service_edit_callback.filter(action="edit"), state="*")
+@dp.callback_query_handler(
+    IsAdmin(), service_edit_callback.filter(action="edit"), state="*"
+)
 async def edit_service(
     call: types.CallbackQuery, callback_data: dict, state: FSMContext
 ):
@@ -45,8 +50,7 @@ async def edit_service(
         f"Servisni tahrirlash:\n\n"
         f"Servis nomi: {service['title']}\n"
         f"Servis haqida: {service['description']}\n"
-        f"Telefon raqam: {service['phone_number']}\n"
-        f"Kategoriya: {', '.join(service['categories'])}\n\n"
+        f"Telefon raqam: {service['phone_number']}\n\n"
         f"Nimani o'zgartiramiz?",
         reply_markup=edit_service_section_kb(service_id=service_id),
     )
@@ -67,7 +71,6 @@ async def back_to_service(
         f"<b>🔧 Servis nomi:</b> {selected_service['title']}\n"
         f"<b>📋 Ma'lumot:</b> {selected_service['description'] if selected_service['description'] else '<i>Mavjud emas</i>'}\n"
         f"<b>📞 Telefon raqam:</b> {selected_service['phone_number']}\n"
-        f"<b>⚙️ Kategoriyalari:</b> {', '.join([category for category in selected_service['categories']])}\n"
         f"<b>📅 Yaratilgan vaqti:</b> {selected_service['created_at'].strftime("%d-%m-%Y %H:%M")}\n",
         reply_markup=service_edit_kb(selected_service["id"]),
     )
@@ -94,11 +97,27 @@ async def get_service_name(message: types.Message, state: FSMContext):
         await message.answer(db_response.message)
         return
 
-    await message.answer("Servis nomi muvaffaqiyatli o'zgartirildi.")
+    service = await db.get_service_by_id(data.get("service_id"))
+    if not service.success:
+        return await message.answer(service.message)
+
+    selected_service = service.data
+
+    await message.answer(
+        f"<b>🆔 ID:</b> {selected_service['id']}\n"
+        f"<b>🔧 Servis nomi:</b> {selected_service['title']}\n"
+        f"<b>📋 Ma'lumot:</b> {selected_service['description'] if selected_service['description'] else '<i>Mavjud emas</i>'}\n"
+        f"<b>📞 Telefon raqam:</b> {selected_service['phone_number']}\n"
+        f"<b>📅 Yaratilgan vaqti:</b> {selected_service['created_at'].strftime("%d-%m-%Y %H:%M")}\n",
+        reply_markup=service_edit_kb(selected_service["id"]),
+    )
+    await state.set_state("select_service")
     await state.finish()
 
 
-@dp.callback_query_handler(IsAdmin(), edit_service_section_cb.filter(section="description"))
+@dp.callback_query_handler(
+    IsAdmin(), edit_service_section_cb.filter(section="description")
+)
 async def edit_service_description(
     call: types.CallbackQuery, callback_data: dict, state: FSMContext
 ):
@@ -118,8 +137,21 @@ async def get_service_description(message: types.Message, state: FSMContext):
         await message.answer(db_response.message)
         return
 
-    await message.answer("Servis haqida ma'lumot muvaffaqiyatli o'zgartirildi.")
-    await state.finish()
+    service = await db.get_service_by_id(data.get("service_id"))
+    if not service.success:
+        return await message.answer(service.message)
+
+    selected_service = service.data
+
+    await message.answer(
+        f"<b>🆔 ID:</b> {selected_service['id']}\n"
+        f"<b>🔧 Servis nomi:</b> {selected_service['title']}\n"
+        f"<b>📋 Ma'lumot:</b> {selected_service['description'] if selected_service['description'] else '<i>Mavjud emas</i>'}\n"
+        f"<b>📞 Telefon raqam:</b> {selected_service['phone_number']}\n"
+        f"<b>📅 Yaratilgan vaqti:</b> {selected_service['created_at'].strftime("%d-%m-%Y %H:%M")}\n",
+        reply_markup=service_edit_kb(selected_service["id"]),
+    )
+    await state.set_state("select_service")
 
 
 @dp.callback_query_handler(IsAdmin(), edit_service_section_cb.filter(section="phone"))
@@ -142,5 +174,18 @@ async def get_service_phone(message: types.Message, state: FSMContext):
         await message.answer(db_response.message)
         return
 
-    await message.answer("Telefon raqam muvaffaqiyatli o'zgartirildi.")
-    await state.finish()
+    service = await db.get_service_by_id(data.get("service_id"))
+    if not service.success:
+        return await message.answer(service.message)
+
+    selected_service = service.data
+
+    await message.answer(
+        f"<b>🆔 ID:</b> {selected_service['id']}\n"
+        f"<b>🔧 Servis nomi:</b> {selected_service['title']}\n"
+        f"<b>📋 Ma'lumot:</b> {selected_service['description'] if selected_service['description'] else '<i>Mavjud emas</i>'}\n"
+        f"<b>📞 Telefon raqam:</b> {selected_service['phone_number']}\n"
+        f"<b>📅 Yaratilgan vaqti:</b> {selected_service['created_at'].strftime("%d-%m-%Y %H:%M")}\n",
+        reply_markup=service_edit_kb(selected_service["id"]),
+    )
+    await state.set_state("select_service")

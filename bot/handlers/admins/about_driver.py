@@ -3,6 +3,7 @@ from bot.loader import dp, db
 from bot.filters import IsAdmin
 from aiogram.dispatcher.filters import Text
 from bot.keyboards.inline import edit_driver_detail_kb
+from bot.utils.main import format_currency
 
 
 @dp.message_handler(IsAdmin(), Text(startswith="🚖"))
@@ -17,7 +18,8 @@ async def driver_details(message: types.Message):
             f"<b>🚗 Mashina modeli:</b> {driver['car_model']}\n"
             f"<b>🚖 Mashina raqami:</b> {driver['car_plate']}\n"
             f"<b>📦 Tarifi:</b> {driver['tariff']}\n"
-            f"<b>💰 Balansi:</b> {driver['balance']} so'm",
+            f"<b>💰 Balansi:</b> {format_currency(int(driver['balance']))} so'm\n"
+            f"<b>📅 Qo'shilgan vaqti</b>: {driver['created_at'].strftime('%d-%m-%Y %H:%M')}",
             reply_markup=edit_driver_detail_kb(driver["id"]),
         )
     else:

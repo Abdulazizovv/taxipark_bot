@@ -3,6 +3,7 @@ from bot.loader import dp, db
 from aiogram.dispatcher import FSMContext
 from bot.keyboards.inline.submit_service import submit_service_cb
 from bot.keyboards.inline.service_edit import service_edit_kb
+from bot.keyboards.default import admin_menu_kb
 
 
 @dp.callback_query_handler(submit_service_cb.filter(action="submit"), state="*")
@@ -12,8 +13,7 @@ async def submit_service(call: types.CallbackQuery, callback_data: dict, state: 
     db_response = await db.create_new_service(
         title=data.get("service_name"),
         description=data.get("service_description"),
-        phone_number=data.get("service_phone"),
-        category_ids=data.get("service_category_ids"),
+        phone_number=data.get("service_phone")
     )
 
     if not db_response.success:
@@ -37,7 +37,14 @@ async def submit_service(call: types.CallbackQuery, callback_data: dict, state: 
         f"<b>🔧 Servis nomi:</b> {service['title']}\n"
         f"<b>📋 Ma'lumot:</b> {service['description']}\n"
         f"<b>📞 Telefon raqam:</b> {service['phone_number']}\n"
-        f"<b>⚙️ Kategoriyalari:</b> {', '.join([category for category in service['categories']])}\n"
         f"<b>📅 Yaratilgan vaqti:</b> {service['created_at'].strftime("%d-%m-%Y %H:%M")}\n",
         reply_markup=service_edit_kb(service['id'])
     )
+
+
+@dp.callback_query_handler(submit_service_cb.filter(action="cancel"), state="*")
+async def cancel_service(call: types.CallbackQuery, state: FSMContext):
+    await state.finish()
+    await call.message.edit_reply_markup()
+    await call.message.answer("Servis yaratish bekor qilindi!❌\n"
+                              "Bosh menyuga qatdingiz.", reply_markup=admin_menu_kb)

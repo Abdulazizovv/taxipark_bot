@@ -3,13 +3,13 @@ from botapp.models import BotUser
 from manager.models import Manager
 from driver.models import Driver
 from service.models import Service
-from service_category.models import ServiceCategory
 from transactions.models import Transaction
 import logging
 from django.db.models import Q
 from django.db.models.functions import Lower
 from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
+from django.utils import timezone
 
 
 class DbResponse:
@@ -69,9 +69,9 @@ class DBCommands:
             return None
 
     @sync_to_async
-    def get_drivers_data(self):
+    def get_drivers_data(self, limit=50, offset=0):
         return list(
-            Driver.objects.values(
+            Driver.active_drivers.values(
                 "id",
                 "full_name",
                 "phone_number",
@@ -79,13 +79,15 @@ class DBCommands:
                 "car_plate",
                 "balance",
                 "tariff",
-            ).order_by("id")
+            )
+            .order_by("id")[offset : offset + limit] 
         )
+
 
     @sync_to_async
     def search_drivers(self, search_query: str):
         return list(
-            Driver.objects.filter(
+            Driver.active_drivers.filter(
                 Q(full_name__icontains=search_query)
                 | Q(phone_number__icontains=search_query)
                 | Q(car_model__icontains=search_query)
@@ -139,7 +141,7 @@ class DBCommands:
         tariff: str,
     ):
         try:
-            driver = Driver.objects.create(
+            driver = Driver.active_drivers.create(
                 full_name=full_name,
                 phone_number=phone_number,
                 car_model=car_model,
@@ -177,7 +179,7 @@ class DBCommands:
     @sync_to_async
     def enought_driver_balance(self, driver_id: int, amount: int):
         try:
-            driver = Driver.objects.get(id=driver_id)
+            driver = Driver.active_drivers.get(id=driver_id)
             if driver.balance >= amount:
                 return True
             return False
@@ -192,7 +194,7 @@ class DBCommands:
     def get_driver(self, driver_id: int):
         try:
             driver = (
-                Driver.objects.filter(id=driver_id)
+                Driver.active_drivers.filter(id=driver_id)
                 .values(
                     "id",
                     "full_name",
@@ -225,7 +227,7 @@ class DBCommands:
     def get_driver_by_car_plate(self, car_plate: str):
         try:
             driver = (
-                Driver.objects.filter(car_plate=car_plate)
+                Driver.active_drivers.filter(car_plate=car_plate)
                 .values(
                     "id",
                     "full_name",
@@ -234,6 +236,8 @@ class DBCommands:
                     "car_plate",
                     "balance",
                     "tariff",
+                    "created_at",
+                    "updated_at",
                 )
                 .first()
             )
@@ -251,8 +255,8 @@ class DBCommands:
     @sync_to_async
     def delete_driver(self, driver_id: int):
         try:
-            driver = Driver.objects.get(id=driver_id)
-            driver.delete()
+            driver = Driver.active_drivers.get(id=driver_id)
+            driver.soft_delete()
             return True
         except Driver.DoesNotExist:
             logging.error(f"Driver with id {driver_id} does not exist")
@@ -264,7 +268,7 @@ class DBCommands:
     @sync_to_async
     def edit_driver_full_name(self, driver_id: int, full_name: str):
         try:
-            driver = Driver.objects.get(id=driver_id)
+            driver = Driver.active_drivers.get(id=driver_id)
             driver.full_name = full_name
             driver.save()
             return True
@@ -278,7 +282,7 @@ class DBCommands:
     @sync_to_async
     def edit_driver_phone_number(self, driver_id: int, phone_number: str):
         try:
-            driver = Driver.objects.get(id=driver_id)
+            driver = Driver.active_drivers.get(id=driver_id)
             driver.phone_number = phone_number
             driver.save()
             return True
@@ -292,7 +296,7 @@ class DBCommands:
     @sync_to_async
     def edit_driver_car_model(self, driver_id: int, car_model: str):
         try:
-            driver = Driver.objects.get(id=driver_id)
+            driver = Driver.active_drivers.get(id=driver_id)
             driver.car_model = car_model
             driver.save()
             return True
@@ -306,7 +310,7 @@ class DBCommands:
     @sync_to_async
     def edit_driver_car_plate(self, driver_id: int, car_plate: str):
         try:
-            driver = Driver.objects.get(id=driver_id)
+            driver = Driver.active_drivers.get(id=driver_id)
             driver.car_plate = car_plate
             driver.save()
             return True
@@ -320,7 +324,7 @@ class DBCommands:
     @sync_to_async
     def edit_driver_tariff(self, driver_id: int, tariff: str):
         try:
-            driver = Driver.objects.get(id=driver_id)
+            driver = Driver.active_drivers.get(id=driver_id)
             driver.tariff = tariff
             driver.save()
             return True
@@ -334,7 +338,7 @@ class DBCommands:
     @sync_to_async
     def add_balance(self, driver_id: int, amount: int, description: str | None = None):
         try:
-            driver = Driver.objects.get(id=driver_id)
+            driver = Driver.active_drivers.get(id=driver_id)
             Transaction.objects.create(
                 driver=driver,
                 amount=amount,
@@ -343,7 +347,17 @@ class DBCommands:
                 ),
             )
             logging.info(f"Balance added to driver with id {driver_id}")
-            return True
+            return {
+                "id": driver.id,
+                "full_name": driver.full_name,
+                "phone_number": driver.phone_number,
+                "car_model": driver.car_model,
+                "car_plate": driver.car_plate,
+                "balance": driver.balance,
+                "tariff": driver.tariff,
+                "created_at": driver.created_at,
+                "updated_at": driver.updated_at,
+            }
         except Driver.DoesNotExist:
             logging.error(f"Driver with id {driver_id} does not exist")
             return False
@@ -353,73 +367,8 @@ class DBCommands:
 
     # ==================== Service Categories ====================
 
-    @sync_to_async
-    def get_service_category_by_name(self, name: str):
-        try:
-            category = ServiceCategory.objects.filter(name=name)
-            if category.exists():
-                data = {
-                    "id": category.values().first()["id"],
-                    "name": category.values().first()["name"],
-                    "description": category.values().first()["description"],
-                }
-                return DbResponse(
-                    success=True, message="Servis kategoriya ma'lumotlari", data=data
-                )
-            else:
-                return DbResponse(
-                    success=False, message="Servis kategoriya topilmadi", data=None
-                )
-        except Exception as e:
-            logging.error(f"Error getting service category: {e}")
-            return DbResponse(
-                success=False, message="Noma'lum xatolik sodir bo'ldi", data=None
-            )
 
-    @sync_to_async
-    def get_all_category_services(self):
-        data = list(
-            ServiceCategory.objects.values("id", "name", "description").order_by("id")
-        )
-        if data:
-            return DbResponse(
-                success=True, message="Servis kategoriyalari ro'yxati", data=data
-            )
-        else:
-            return DbResponse(
-                success=False, message="Servis kategoriyalari topilmadi", data=None
-            )
 
-    @sync_to_async
-    def service_category_get_or_create(self, name: str):
-        try:
-            category, created = ServiceCategory.objects.get_or_create(name=name)
-            return DbResponse(
-                success=True,
-                message="Servis kategoriya muvaffaqiyatli qo'shildi",
-                data={"category_id": category.id, "created": created},
-            )
-        except Exception as e:
-            logging.error(f"Error creating service category: {e}")
-            return DbResponse(
-                success=False, message="Servis kategoriya qismida xatolik!", data=None
-            )
-
-    @sync_to_async
-    def exclude_service_categories(self, category_ids: list):
-        data = list(
-            ServiceCategory.objects.exclude(id__in=category_ids)
-            .values("id", "name")
-            .order_by("id")
-        )
-        if data:
-            return DbResponse(
-                success=True, message="Servis kategoriyalari ro'yxati", data=data
-            )
-        else:
-            return DbResponse(
-                success=False, message="Servis kategoriyalari topilmadi", data=None
-            )
 
     # ==================== Services ====================
 
@@ -438,13 +387,12 @@ class DBCommands:
 
     @sync_to_async
     def create_new_service(
-        self, title, description: str | None, phone_number: str, category_ids: list
+        self, title, description: str | None, phone_number: str
     ):
         try:
             service = Service.objects.create(
                 title=title, description=description, phone_number=phone_number
             )
-            service.category.set(category_ids)
             return DbResponse(
                 success=True,
                 message="Yangi servis muvaffaqiyatli qo'shildi",
@@ -467,9 +415,6 @@ class DBCommands:
                     "id": service.values().first()["id"],
                     "phone_number": service.values().first()["phone_number"],
                     "title": service.values().first()["title"],
-                    "categories": [
-                        category.name for category in service.first().category.all()
-                    ],
                     "description": service.values().first()["description"],
                     "created_at": service.values().first()["created_at"],
                     "updated_at": service.values().first()["updated_at"],
@@ -493,9 +438,6 @@ class DBCommands:
                     "id": service.values().first()["id"],
                     "phone_number": service.values().first()["phone_number"],
                     "title": service.values().first()["title"],
-                    "categories": [
-                        category.name for category in service.first().category.all()
-                    ],
                     "description": service.values().first()["description"],
                     "created_at": service.values().first()["created_at"],
                     "updated_at": service.values().first()["updated_at"],
@@ -600,24 +542,6 @@ class DBCommands:
                 success=False, message="Noma'lum xatolik sodir bo'ldi", data=None
             )
 
-    @sync_to_async
-    def edit_service_category(self, service_id: int, category_ids: list):
-        try:
-            service = Service.objects.get(id=service_id)
-            service.category.set(category_ids)
-            return DbResponse(
-                success=True,
-                message="Servis kategoriyasi muvaffaqiyatli o'zgartirildi",
-                data=None,
-            )
-        except Service.DoesNotExist:
-            logging.error(f"Service with id {service_id} does not exist")
-            return DbResponse(success=False, message="Servis topilmadi", data=None)
-        except Exception as e:
-            logging.error(f"Error editing service category: {e}")
-            return DbResponse(
-                success=False, message="Noma'lum xatolik sodir bo'ldi", data=None
-            )
 
     # ==================== Get statistics ====================
     @sync_to_async
@@ -635,9 +559,9 @@ class DBCommands:
 
     @sync_to_async
     def get_drivers_stats(self):
-        drivers_count = Driver.objects.count()
-        active_drivers = Driver.objects.filter(is_deleted=None).count()
-        inactive_drivers = Driver.objects.exclude(is_deleted=None).count()
+        drivers_count = Driver.active_drivers.count()
+        active_drivers = Driver.active_drivers.filter(is_deleted=None).count()
+        inactive_drivers = Driver.active_drivers.exclude(is_deleted=None).count()
         return {
             "count": drivers_count,
             "active_drivers": active_drivers,
@@ -647,10 +571,8 @@ class DBCommands:
     @sync_to_async
     def get_services_stats(self):
         services_count = Service.objects.count()
-        service_categories_count = ServiceCategory.objects.count()
         return {
             "count": services_count,
-            "category_count": service_categories_count,
         }
 
     @sync_to_async
@@ -662,15 +584,12 @@ class DBCommands:
 
     @sync_to_async
     def get_drivers_count(self):
-        return Driver.objects.count()
+        return Driver.active_drivers.count()
 
     @sync_to_async
     def get_services_count(self):
         return Service.objects.count()
 
-    @sync_to_async
-    def get_service_categories_count(self):
-        return ServiceCategory.objects.count()
 
     @sync_to_async
     def get_transactions_count(self):
@@ -723,7 +642,7 @@ class DBCommands:
         self, driver_id: int, service_id: int, summa: int, comment: str | None = None
     ):
         try:
-            driver = Driver.objects.get(id=driver_id)
+            driver = Driver.active_drivers.get(id=driver_id)
             service = Service.objects.get(id=service_id)
             transaction = Transaction.objects.create(
                 driver=driver,

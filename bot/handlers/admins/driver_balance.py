@@ -3,6 +3,8 @@ from aiogram.dispatcher import FSMContext
 from bot.loader import dp, db
 from bot.keyboards.inline import driver_detail_callback
 from bot.keyboards.inline import edit_driver_detail_kb
+from bot.keyboards.default import back_kb
+from bot.utils.main import format_currency
 
 
 @dp.callback_query_handler(driver_detail_callback.filter(action="add_balance"))
@@ -11,7 +13,7 @@ async def add_balance(
 ):
     driver_id = int(callback_data.get("driver_id"))
     await call.message.edit_reply_markup()
-    await call.message.answer("Summani kiriting:")
+    await call.message.answer("Summani kiriting:", reply_markup=back_kb)
     await state.set_state("add_balance")
     await state.update_data(driver_id=driver_id)
 
@@ -19,35 +21,128 @@ async def add_balance(
 @dp.message_handler(state="add_balance")
 async def add_balance(message: types.Message, state: FSMContext):
     data = await state.get_data()
+
     driver_id = data.get("driver_id")
+
     driver = await db.get_driver(driver_id)
+
     if not driver.success:
         await message.answer(driver.message)
         return
     driver = driver.data
-    balance: str = message.text
-    if balance.isdigit() and int(balance) > 0:
-        if not await db.add_balance(driver_id, int(balance)):
-            await message.answer("Balansni o'zgartirishda xatolik bo'ldi!\n"
-                                 "Iltimos qayta urinib ko'ring!")
-            return
-        driver = await db.get_driver(driver_id)
-        if not driver.success:
-            await message.answer(driver.message)
-            return
-        driver = driver.data
+
+    try:
+        del_msg = await message.answer("...", reply_markup=types.ReplyKeyboardRemove())
+        await dp.bot.delete_message(
+            chat_id=del_msg.chat.id, message_id=del_msg.message_id
+        )
+    except:
+        pass
+
+    if message.text == "◀️Orqaga":
         await message.answer(
-            "Balans muvaffaqqiyatli o'zgartirildi!\n"
+            f"Haydovchi ma'lumotlari!\n"
             f"<b>👤 Ismi:</b> {driver['full_name']}\n"
             f"<b>📞 Telefon raqami:</b> {driver['phone_number']}\n"
             f"<b>🚗 Mashina modeli:</b> {driver['car_model']}\n"
             f"<b>🚖 Mashina raqami:</b> {driver['car_plate']}\n"
             f"<b>📦 Tarifi:</b> {driver['tariff']}\n"
-            f"<b>💰 Balansi:</b> {driver['balance']} so'm",
+            f"<b>💰 Balansi:</b> {format_currency(int(driver['balance']))} so'm",
             reply_markup=edit_driver_detail_kb(driver_id),
         )
+        await state.finish()
+        return
+
+    balance: str = message.text
+
+    if balance.isdigit() and int(balance) > 0:
+
+        # balans to'ldirishni tasdiqlash
+        await message.answer(
+            f"Balansni {format_currency(int(balance))} so'm ga o'zgartirishni tasdiqlaysizmi?",
+            reply_markup=types.InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        types.InlineKeyboardButton(
+                            text="Ha",
+                            callback_data=f"confirm_balance:{balance}:{driver_id}",
+                        ),
+                        types.InlineKeyboardButton(
+                            text="Yo'q", callback_data=f"cancel_balance:{driver_id}"
+                        ),
+                    ]
+                ]
+            ),
+        )
+
     else:
-        await message.answer("Summa faqat raqamlardan tashkil topgan bo'lishi va 0 dan katta bo'lishi kerak...!")
+        await message.answer(
+            "<i>Summa faqat raqamlardan tashkil topgan bo'lishi va 0 dan katta bo'lishi kerak!</i>",
+            parse_mode="HTML",
+            reply_markup=back_kb,
+        )
         await state.set_state("add_balance")
         return
+    await state.finish()
+
+
+@dp.callback_query_handler(
+    lambda call: call.data.startswith("cancel_balance"), state="*"
+)
+async def cancel_balance(call: types.CallbackQuery, state: FSMContext):
+    driver_id = int(call.data.split(":")[-1])
+    driver = await db.get_driver(driver_id)
+    if not driver.success:
+        await call.message.answer(driver.message)
+        return
+    driver = driver.data
+    await call.message.answer(
+        f"Balansni o'zgartirish bekor qilindi!\n\n"
+        f"Haydovchi ma'lumotlari!\n"
+        f"<b>👤 Ismi:</b> {driver['full_name']}\n"
+        f"<b>📞 Telefon raqami:</b> {driver['phone_number']}\n"
+        f"<b>🚗 Mashina modeli:</b> {driver['car_model']}\n"
+        f"<b>🚖 Mashina raqami:</b> {driver['car_plate']}\n"
+        f"<b>📦 Tarifi:</b> {driver['tariff']}\n"
+        f"<b>💰 Balansi:</b> {format_currency(int(driver['balance']))} so'm",
+        parse_mode="HTML",
+        reply_markup=edit_driver_detail_kb(driver_id),
+    )
+
+    await state.finish()
+
+
+@dp.callback_query_handler(
+    lambda call: call.data.startswith("confirm_balance"), state="*"
+)
+async def confirm_balance(call: types.CallbackQuery, state: FSMContext):
+    balance = int(call.data.split(":")[1])
+    driver_id = int(call.data.split(":")[-1])
+
+
+    driver = await db.add_balance(driver_id, balance)
+    if not driver:
+        await call.message.answer("Nimadir xato bo'ldi!")
+        return
+    
+    driver = await db.get_driver(driver_id)
+    if not driver.success:
+        await call.message.answer(driver.message)
+        return
+    driver = driver.data
+
+    await call.message.delete()
+    await call.message.answer(
+        f"Balansni {format_currency(balance)} so'm ga o'zgartirish muvaffaqiyatli amalga oshirildi!\n\n"
+        f"Haydovchi ma'lumotlari!\n"
+        f"<b>👤 Ismi:</b> {driver['full_name']}\n"
+        f"<b>📞 Telefon raqami:</b> {driver['phone_number']}\n"
+        f"<b>🚗 Mashina modeli:</b> {driver['car_model']}\n"
+        f"<b>🚖 Mashina raqami:</b> {driver['car_plate']}\n"
+        f"<b>📦 Tarifi:</b> {driver['tariff']}\n"
+        f"<b>💰 Balansi:</b> {format_currency(int(driver['balance']))} so'm",
+        parse_mode="HTML",
+        reply_markup=edit_driver_detail_kb(driver_id),
+    )
+
     await state.finish()

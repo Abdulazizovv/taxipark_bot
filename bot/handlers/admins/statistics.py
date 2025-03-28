@@ -22,8 +22,7 @@ async def show_statistics(message: types.Message, state: FSMContext):
     f"Jami: {driver_statistics['count']}\n"\
     f"Faol: {driver_statistics['active_drivers']}\n\n"\
     f"<b>🔧 Xizmatlar:</b>\n" \
-    f"Jami: {service_statistics['count']}\n"\
-    f"Kategoriyalari soni: {service_statistics['category_count']}\n\n"\
+    f"Jami: {service_statistics['count']}\n\n"\
     f"<b>💰Tranzaksiyalar:</b>\n" \
     f"Jami: {transaction_statistics['count']}\n"
 

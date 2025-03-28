@@ -27,7 +27,6 @@ async def get_selected_service(message: types.Message, state: FSMContext):
         f"<b>🔧 Servis nomi:</b> {selected_service['title']}\n"
         f"<b>📋 Ma'lumot:</b> {selected_service['description'] if selected_service['description'] else '<i>Mavjud emas</i>'}\n"
         f"<b>📞 Telefon raqam:</b> {selected_service['phone_number']}\n"
-        f"<b>⚙️ Kategoriyalari:</b> {', '.join([category for category in selected_service['categories']])}\n"
         f"<b>📅 Yaratilgan vaqti:</b> {selected_service['created_at'].strftime("%d-%m-%Y %H:%M")}\n",
         reply_markup=service_edit_kb(selected_service['id'])
     )

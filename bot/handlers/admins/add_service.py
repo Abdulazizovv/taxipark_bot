@@ -1,9 +1,7 @@
 from aiogram import types
 from bot.loader import dp, db
 from aiogram.dispatcher import FSMContext
-from bot.keyboards.default.service_category import service_category_kb
 from bot.keyboards.inline.submit_service import submit_service_kb
-from bot.keyboards.default.service_category_add import service_category_add_kb
 from bot.keyboards.default import admin_menu_kb
 from bot.keyboards.default.service_back import back_kb
 from asyncio import sleep
@@ -18,12 +16,12 @@ async def add_service(message: types.Message, state: FSMContext):
         "Yangi servis qo'shish uchun kerakli ma'lumotlar:\n\n"
         "1️⃣ Servis nomi\n"
         "2️⃣ Servis haqida qisqacha ma'lumot\n"
-        "3️⃣ Servis uchun telefon raqam\n"
-        "4️⃣ Servis kategoriyasini tanlash\n"
+        "3️⃣ Servis telefon raqami\n"
+        "4️⃣ Servisni tasdiqlash\n"
     )
 
     await message.answer(
-        "Yangi servis nomini kiriting:\n" "<i>masalan: <b>Shaffof</b></i>",
+        "Yangi servis nomini kiriting:\n" "<i>masalan: <b>Shaffof Gaz quyish shahobchasi</b></i>",
         parse_mode="html",
         reply_markup=back_kb,
     )
@@ -50,7 +48,7 @@ async def get_service_name(message: types.Message, state: FSMContext):
 
     await message.answer(
         "Servis haqida qisqacha ma'lumot bering:\n"
-        "<i>masalan: <b>Shaffof - 24/7</b></i>",
+        "<i>masalan: <b>Chilonzor filiali</b></i>",
         parse_mode="html",
         reply_markup=back_kb,
     )
@@ -63,7 +61,7 @@ async def get_service_description(message: types.Message, state: FSMContext):
 
     if message.text == "⬅️Orqaga":
         await message.answer(
-            "Yangi servis nomini kiriting:\n" "<i>masalan: <b>Shaffof</b></i>",
+            "Yangi servis nomini kiriting:\n" "<i>masalan: <b>Shaffof Gaz quyish shahobchasi</b></i>",
             parse_mode="html",
             reply_markup=back_kb,
         )
@@ -98,95 +96,92 @@ async def get_service_phone(message: types.Message, state: FSMContext):
         return
 
     service_phone = message.text
+    await state.update_data(service_phone=service_phone)
     data = await state.get_data()
 
     await state.update_data(service_phone=service_phone)
-
-    service_categories_response = await db.get_all_category_services()
-
-    if not service_categories_response.success:
-        await message.answer(service_categories_response.message)
-        return
-
-    service_categories = service_categories_response.data
-
+    await message.answer("⏳", reply_markup=types.ReplyKeyboardRemove())
+    await sleep(1)
     await message.answer(
-        "Servis kategoriyasini tanlang:",
-        reply_markup=service_category_kb(service_categories),
+        "Ma'lumotlar qabul qilindi!\n"
+        f"Servis nomi: {data['service_name']}\n"
+        f"Servis haqida: {data['service_description']}\n"
+        f"Telefon raqam: {data['service_phone']}\n",
+        reply_markup=submit_service_kb(),
     )
+    return
 
-    await state.set_state("service_category")
 
 
-@dp.message_handler(state="service_category")
-async def get_service_category(message: types.Message, state: FSMContext):
+# @dp.message_handler(state="service_category")
+# async def get_service_category(message: types.Message, state: FSMContext):
 
-    if message.text == "⬅️Orqaga":
-        await message.answer(
-            "Servis uchun telefon raqamini kiriting:\n"
-            "<i>masalan: <b>+998 99 999 99 99</b></i>",
-            parse_mode="html",
-            reply_markup=back_kb,
-        )
-        await state.set_state("service_phone")
-        return
+#     if message.text == "⬅️Orqaga":
+#         await message.answer(
+#             "Servis uchun telefon raqamini kiriting:\n"
+#             "<i>masalan: <b>+998 99 999 99 99</b></i>",
+#             parse_mode="html",
+#             reply_markup=back_kb,
+#         )
+#         await state.set_state("service_phone")
+#         return
 
-    data = await state.get_data()
-    service_category_name = message.text
+#     data = await state.get_data()
+#     service_category_name = message.text
 
-    service_category_names = data.get("service_category_names", [])
+#     service_category_names = data.get("service_category_names", [])
 
-    if message.text == "Davom etish▶️":
+#     if message.text == "Davom etish▶️":
 
-        await message.answer("⏳", reply_markup=types.ReplyKeyboardRemove())
-        await sleep(1)
-        await message.answer(
-            "Ma'lumotlar qabul qilindi!\n"
-            f"Servis nomi: {data['service_name']}\n"
-            f"Servis haqida: {data['service_description']}\n"
-            f"Telefon raqam: {data['service_phone']}\n"
-            f"Kategoriyalar: {', '.join(service_category_names)}\n",
-            reply_markup=submit_service_kb(),
-        )
-        return
+#         await message.answer("⏳", reply_markup=types.ReplyKeyboardRemove())
+#         await sleep(1)
+#         await message.answer(
+#             "Ma'lumotlar qabul qilindi!\n"
+#             f"Servis nomi: {data['service_name']}\n"
+#             f"Servis haqida: {data['service_description']}\n"
+#             f"Telefon raqam: {data['service_phone']}\n"
+#             f"Kategoriyalar: {', '.join(service_category_names)}\n",
+#             reply_markup=submit_service_kb(),
+#         )
+#         return
 
-    service_category_names.append(service_category_name)
+#     service_category_names.append(service_category_name)
 
-    service_category_response = await db.service_category_get_or_create(
-        service_category_name
-    )
+#     service_category_response = await db.service_category_get_or_create(
+#         service_category_name
+#     )
 
-    if not service_category_response.success:
-        await message.answer(service_category_response.message)
-        return
+#     if not service_category_response.success:
+#         await message.answer(service_category_response.message)
+#         return
 
-    service_category_id = service_category_response.data["category_id"]
+#     service_category_id = service_category_response.data["category_id"]
 
-    await state.update_data(service_category_names=service_category_names)
+#     await state.update_data(service_category_names=service_category_names)
 
-    service_category_ids = data.get("service_category_ids", [])
-    service_category_ids.append(service_category_id)
-    await state.update_data(service_category_ids=service_category_ids)
+#     service_category_ids = data.get("service_category_ids", [])
+#     service_category_ids.append(service_category_id)
+#     await state.update_data(service_category_ids=service_category_ids)
 
-    response = await db.exclude_service_categories(service_category_ids)
+#     response = await db.exclude_service_categories(service_category_ids)
 
-    if not response.success:
-        await message.answer("⏳", reply_markup=types.ReplyKeyboardRemove())
-        await sleep(1)
-        await message.answer(
-            "Ma'lumotlar qabul qilindi!\n"
-            f"Servis nomi: {data['service_name']}\n"
-            f"Servis haqida: {data['service_description']}\n"
-            f"Telefon raqam: {data['service_phone']}\n"
-            f"Kategoriyalar: {', '.join(service_category_names)}\n",
-            reply_markup=submit_service_kb(),
-        )
-        return
+#     if not response.success:
+#         await message.answer("⏳", reply_markup=types.ReplyKeyboardRemove())
+#         await sleep(1)
+#         await message.answer(
+#             "Ma'lumotlar qabul qilindi!\n"
+#             f"Servis nomi: {data['service_name']}\n"
+#             f"Servis haqida: {data['service_description']}\n"
+#             f"Telefon raqam: {data['service_phone']}\n"
+#             f"Kategoriyalar: {', '.join(service_category_names)}\n",
+#             reply_markup=submit_service_kb(),
+#         )
+#         return
 
-    service_categories = response.data
+#     service_categories = response.data
 
-    await message.answer(
-        "Kategoriya tanlandi!\n"
-        "Yana tanlashingiz mumkin. Agar tanlagan bo'lsa, tasdiqlash tugmasini bosing.",
-        reply_markup=service_category_add_kb(service_categories),
-    )
+#     await message.answer(
+#         "Kategoriya tanlandi!\n"
+#         "Yana tanlashingiz mumkin. Agar tanlagan bo'lsa, tasdiqlash tugmasini bosing.",
+#         reply_markup=service_category_add_kb(service_categories),
+#     )
