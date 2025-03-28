@@ -4,6 +4,7 @@ from aiogram.dispatcher import FSMContext
 from bot.keyboards.inline import submit_new_driver_cb
 from bot.keyboards.inline import edit_driver_detail_kb
 from asyncio import sleep
+from bot.keyboards.default import admin_menu_kb
 
 
 @dp.callback_query_handler(
@@ -60,3 +61,12 @@ async def submit_new_driver(
     )
 
     await state.finish()
+
+
+@dp.callback_query_handler(submit_new_driver_cb.filter(action="cancel"), state="*")
+async def cancel_submit_new_driver(call: types.CallbackQuery, state: FSMContext):
+    await state.finish()
+    await call.message.delete()
+    await call.message.answer("Haydovchi qo'shish bekor qilindi❌", reply_markup=admin_menu_kb)
+    await state.finish()
+    return

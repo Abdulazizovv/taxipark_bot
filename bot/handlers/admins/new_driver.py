@@ -4,13 +4,14 @@ from aiogram.dispatcher import FSMContext
 from bot.keyboards.default import back_kb
 from bot.keyboards.inline import submit_new_driver_kb
 from bot.filters import IsAdmin
+from bot.utils.main import validate_phone_number, validate_uzbek_car_plate
 
 
 @dp.message_handler(IsAdmin(), text="Yangi haydovchi➕", state="*")
 async def new_driver(message: types.Message, state: FSMContext):
     await state.finish()
 
-    await message.answer("Haydovchi ismini kiriting:", reply_markup=back_kb)
+    await message.answer("Haydovchi ism familyasini kiriting:", reply_markup=back_kb)
     await state.set_state("new_driver_name")
 
 
@@ -20,17 +21,22 @@ async def new_driver_name(message: types.Message, state: FSMContext):
 
     await state.update_data(full_name=driver_name)
 
-    await message.answer("Haydovchi telefon raqamini kiriting:", reply_markup=back_kb)
+    await message.answer("Haydovchi telefon raqamini kiriting:\n\n"
+                         "<i>misol uchun: +998YYXXXXXXX</i>", parse_mode="HTML", reply_markup=back_kb)
     await state.set_state("new_driver_number")
 
 
 @dp.message_handler(IsAdmin(), state="new_driver_number")
 async def new_driver_number(message: types.Message, state: FSMContext):
     driver_number = message.text
+    if validate_phone_number(driver_number) is False:
+        await message.answer("Telefon raqam noto'g'ri kiritildi!\n"
+                             "<b>Telefon raqam formati:</b><i> +998XXYYYYYYY</i>", parse_mode="HTML", reply_markup=back_kb)
+        return
 
     phone_number_exists = await db.check_phone_number_exists(phone_number=driver_number)
     if not phone_number_exists.success:
-        await message.answer("Bu raqam avval ro'yxatdan o'tgan!")
+        await message.answer("Bu raqam avval ro'yxatdan o'tgan!", reply_markup=back_kb)
         return
 
     await state.update_data(phone_number=driver_number)
@@ -41,7 +47,7 @@ async def new_driver_number(message: types.Message, state: FSMContext):
 
 @dp.message_handler(state="new_driver_car_model")
 async def new_driver_car_model(message: types.Message, state: FSMContext):
-    car_model = message.text
+    car_model = message.text.upper()
 
     await state.update_data(car_model=car_model)
 
@@ -51,11 +57,15 @@ async def new_driver_car_model(message: types.Message, state: FSMContext):
 
 @dp.message_handler(IsAdmin(), state="new_driver_car_number")
 async def new_driver_car_number(message: types.Message, state: FSMContext):
-    car_number = message.text
+    car_number = message.text.upper()
+    if validate_uzbek_car_plate(car_number) is False:
+        await message.answer("Mashina raqam noto'g'ri kiritildi!\n"
+                             "<b>Mashina raqam formati:</b><i> 40A123AA yoki 40123AAA</i>", parse_mode="HTML", reply_markup=back_kb)
+        return
 
     car_plate_exists = await db.check_car_plate(car_plate=car_number)
     if not car_plate_exists.success:
-        await message.answer("Bu avotmashina raqami avval ro'yxatdan o'tgan!")
+        await message.answer("Bu mashina raqami avval ro'yxatdan o'tgan!", reply_markup=back_kb)
         return
 
     await state.update_data(car_plate=car_number)
@@ -112,6 +122,11 @@ async def new_driver_tariff(message: types.Message, state: FSMContext):
         f"<b>Model:</b> {data.get('car_model')}\n"
         f"<b>Raqam:</b> {data.get('car_plate')}\n"
         f"<b>Tarif:</b> {data.get('tariff')}",
+        reply_markup=types.ReplyKeyboardRemove()  # ✅ Remove the keyboard here
+    )
+
+    await message.answer(
+        "Davom etish uchun quyidagilardan birini tanlang:",
         reply_markup=submit_new_driver_kb()
     )
     await state.set_state("submit_new_driver")

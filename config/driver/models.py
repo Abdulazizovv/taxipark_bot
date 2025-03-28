@@ -3,7 +3,7 @@ from django.db import models
 
 # Haydovchilar modeli
 class Driver(models.Model):
-    phone_number = models.CharField(max_length=15, unique=True)
+    phone_number = models.CharField(max_length=25, unique=True)
     full_name = models.CharField(max_length=100)
     car_model = models.CharField(max_length=100)
     car_plate = models.CharField(max_length=10, unique=True)
