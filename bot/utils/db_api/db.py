@@ -9,6 +9,7 @@ import logging
 from django.db.models import Q
 from django.db.models.functions import Lower
 from django.core.exceptions import ValidationError
+from django.core.paginator import Paginator
 
 
 class DbResponse:
@@ -40,6 +41,8 @@ class DBCommands:
             user = BotUser.objects.get(user_id=user_id)
             user.employee = employee
             user.save()
+            if employee.is_deleted:
+                return False
             return True
         except Manager.DoesNotExist:
             logging.error(f"Manager with phone number {phone_number} does not exist")
@@ -55,6 +58,8 @@ class DBCommands:
     def get_employee_role(self, user_id: int):
         try:
             user = BotUser.objects.get(user_id=user_id)
+            if user.employee.is_deleted:
+                return None
             return user.employee.role
         except BotUser.DoesNotExist:
             logging.error(f"User with id {user_id} does not exist")
@@ -595,4 +600,109 @@ class DBCommands:
             return DbResponse(success=False, message="Foydalanuvchi topilmadi", data=None)
         except Exception as e:
             logging.error(f"Error getting user services: {e}")
+            return DbResponse(success=False, message="Noma'lum xatolik sodir bo'ldi", data=None)
+        
+    
+    # ==================== Transactions ====================
+    @sync_to_async
+    def create_order(self, driver_id: int, service_id: int, summa: int, comment: str|None = None):
+        try:
+            driver = Driver.objects.get(id=driver_id)
+            service = Service.objects.get(id=service_id)
+            transaction = Transaction.objects.create(driver=driver, service=service, amount=-abs(int(summa)), description=comment)
+            return DbResponse(success=True, message="Buyurtma muvaffaqiyatli qabul qilindi", data={"transaction_id": transaction.id})
+        except Driver.DoesNotExist:
+            logging.error(f"Driver with id {driver_id} does not exist")
+            return DbResponse(success=False, message="Haydovchi topilmadi", data=None)
+        except Service.DoesNotExist:
+            logging.error(f"Service with id {service_id} does not exist")
+            return DbResponse(success=False, message="Servis topilmadi", data=None)
+        except Exception as e:
+            logging.error(f"Error creating order: {e}")
+            return DbResponse(success=False, message="Noma'lum xatolik sodir bo'ldi", data=None)
+    
+
+    @sync_to_async
+    def get_service_transactions(self, service_id: int, page: int = 1, per_page: int = 5):
+        try:
+            service = Service.objects.get(id=service_id)
+            transactions = Transaction.objects.filter(service=service).order_by("-created_at")
+
+            # Paginate the transactions
+            paginator = Paginator(transactions, per_page)
+            paginated_transactions = paginator.get_page(page)
+
+            # Convert transaction objects to a list with full driver details
+            data = [
+                {
+                    "id": transaction.id,
+                    "amount": transaction.amount,
+                    "description": transaction.description,
+                    "created_at": transaction.created_at,
+                    "driver": {
+                        "id": transaction.driver.id,
+                        "full_name": transaction.driver.full_name,
+                        "phone_number": transaction.driver.phone_number,
+                        "car_model": transaction.driver.car_model,
+                        "car_plate": transaction.driver.car_plate,
+                        "tariff": transaction.driver.tariff,
+                        "balance": transaction.driver.balance,
+                    },
+                }
+                for transaction in paginated_transactions.object_list
+            ]
+
+            return DbResponse(
+                success=True,
+                message="Tranzaksiyalar ro'yxati",
+                data={
+                    "transactions": data,
+                    "current_page": paginated_transactions.number,
+                    "total_pages": paginator.num_pages,
+                    "has_next": paginated_transactions.has_next(),
+                    "has_previous": paginated_transactions.has_previous(),
+                },
+            )
+
+        except Service.DoesNotExist:
+            logging.error(f"Service with id {service_id} does not exist")
+            return DbResponse(success=False, message="Servis topilmadi", data=None)
+
+        except Exception as e:
+            logging.error(f"Error getting service transactions: {e}")
+            return DbResponse(success=False, message="Noma'lum xatolik sodir bo'ldi", data=None)
+
+    @sync_to_async
+    def get_service_all_transactions(self, service_id: int):
+        try:
+            service = Service.objects.get(id=service_id)
+            transactions = Transaction.objects.filter(service=service).order_by("-created_at")
+
+            data = [
+                {
+                    "id": transaction.id,
+                    "amount": transaction.amount,
+                    "description": transaction.description,
+                    "created_at": transaction.created_at,
+                    "driver": {
+                        "id": transaction.driver.id,
+                        "full_name": transaction.driver.full_name,
+                        "phone_number": transaction.driver.phone_number,
+                        "car_model": transaction.driver.car_model,
+                        "car_plate": transaction.driver.car_plate,
+                        "tariff": transaction.driver.tariff,
+                        "balance": transaction.driver.balance,
+                    },
+                }
+                for transaction in transactions
+            ]
+
+            return DbResponse(success=True, message="Tranzaksiyalar ro'yxati", data=data)
+
+        except Service.DoesNotExist:
+            logging.error(f"Service with id {service_id} does not exist")
+            return DbResponse(success=False, message="Servis topilmadi", data=None)
+
+        except Exception as e:
+            logging.error(f"Error getting service transactions: {e}")
             return DbResponse(success=False, message="Noma'lum xatolik sodir bo'ldi", data=None)

@@ -2,6 +2,7 @@ from aiogram import types
 from bot.loader import dp, db
 from bot.filters import IsService
 from aiogram.types import InlineQueryResultArticle, InputTextMessageContent
+from bot.utils.main import format_currency
 
 
 @dp.inline_handler(IsService(), state="*")
@@ -20,7 +21,7 @@ async def inline_search(query: types.InlineQuery):
             InlineQueryResultArticle(
                 id=str(driver['id']),
                 title=driver['full_name'],
-                description=f"{driver['phone_number']}\n{driver['car_model']} - {driver['car_plate']}\nBalans: {driver['balance']}",
+                description=f"{driver['phone_number']}\n{driver['car_model']} - {driver['car_plate']}\nBalans: {format_currency(int(driver['balance']))} so'm",
                 input_message_content=InputTextMessageContent(
                     message_text=f"🚖 {driver['car_plate']}"
                 ),

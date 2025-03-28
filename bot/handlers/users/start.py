@@ -11,7 +11,6 @@ async def bot_start(message: types.Message):
         full_name=message.from_user.full_name,
         username=message.from_user.username,
     )
-    print("start", user)
 
     await message.answer(
         "Assalomu alaykum! Botimizga xush kelibsiz!\n"
@@ -23,7 +22,6 @@ async def bot_start(message: types.Message):
 @dp.message_handler(content_types=types.ContentType.CONTACT)
 async def get_contact(message: types.Message):
     phone_number = message.contact.phone_number
-    print(phone_number)
     response = await db.connect_user_to_employee(
         user_id=message.from_user.id, phone_number=phone_number
     )
@@ -35,5 +33,5 @@ async def get_contact(message: types.Message):
         )
     else:
         await message.answer(
-            "Bu raqamga ega bo'lgan hodim topilmadi! Iltimos, qaytadan urinib ko'ring!"
+            "Bu raqamga ega bo'lgan hodim topilmadi! Iltimos, adminlarga murojaat qiling!"
         )
