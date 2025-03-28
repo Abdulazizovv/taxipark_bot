@@ -43,7 +43,7 @@ class DBCommands:
             user.save()
             if employee.is_deleted:
                 return False
-            return True
+            return employee.role
         except Manager.DoesNotExist:
             logging.error(f"Manager with phone number {phone_number} does not exist")
             return False

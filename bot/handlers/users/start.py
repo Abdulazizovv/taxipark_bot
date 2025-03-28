@@ -26,11 +26,12 @@ async def get_contact(message: types.Message):
         user_id=message.from_user.id, phone_number=phone_number
     )
     if response:
-        await message.answer(
-            "Siz tizimga kirdingiz!\n"
-            "/start buyrug'ini bosing va bosh menyuga qayting!",
-            reply_markup=types.ReplyKeyboardRemove(),
-        )
+        if response == "admin":
+            await message.answer("Xush kelibsiz, admin!")
+        elif response == "service":
+            await message.answer("Xush kelibsiz!")
+        else:
+            await message.answer("Sizning hisobingizni aktivlashtirish zarur! Iltimos kuting...")
     else:
         await message.answer(
             "Bu raqamga ega bo'lgan hodim topilmadi! Iltimos, adminlarga murojaat qiling!"
