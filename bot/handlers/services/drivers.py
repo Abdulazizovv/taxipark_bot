@@ -11,7 +11,7 @@ from bot.keyboards.default import admin_menu_kb
 async def back_to_admin_panel(call: types.CallbackQuery, state: FSMContext):
     await state.finish()
     await call.message.delete()
-    await call.message.answer("Bosh menyu.", reply_markup=admin_menu_kb)
+    await call.message.answer("Bosh menyudasiz.", reply_markup=admin_menu_kb)
     return
 
 

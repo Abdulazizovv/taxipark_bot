@@ -12,9 +12,11 @@ from bot.utils.main import format_currency
 from datetime import datetime
 
 
-@dp.message_handler(IsService(), Command("statistics"))
-@dp.message_handler(IsService(), text="📊 Hisobotlar")
+@dp.message_handler(IsService(), Command("statistics"), state="*")
+@dp.message_handler(IsService(), text="📊 Hisobotlar", state="*")
 async def show_statistics(message: types.Message, state: FSMContext):
+    await state.finish()
+
     if message.text == "🔙 Orqaga":
         await state.finish()
         return await message.answer("Bosh menyu", reply_markup=service_admin_menu_kb)
@@ -25,7 +27,7 @@ async def show_statistics(message: types.Message, state: FSMContext):
     services = services.data
 
     if not services:
-        await message.answer("Sizda xizmatlar mavjud emas")
+        await message.answer("Sizda xizmatlar mavjud emas", reply_markup=service_admin_menu_kb)
         return
     
     if len(services) == 1:
@@ -35,7 +37,7 @@ async def show_statistics(message: types.Message, state: FSMContext):
             return await message.answer(response.message)
         transactions = response.data
         if not transactions:
-            return await message.answer("Hisobotlar mavjud emas")
+            return await message.answer("Bu xizmat uchun hali hisobotlar mavjud emas.", reply_markup=service_admin_menu_kb)
         
         try:
             del_msg = await message.answer("1 soniya ...", reply_markup=types.ReplyKeyboardRemove())
@@ -83,7 +85,7 @@ async def select_service(message: types.Message, state: FSMContext):
     
     service = service.data
     if not service:
-        return await message.answer("Xizmat topilmadi")
+        return await message.answer("Xizmat topilmadi", reply_markup=service_admin_menu_kb)
     
     await state.update_data(service_id=service["id"])
     response = await db.get_service_transactions(service["id"], page=1, per_page=5)
@@ -96,7 +98,7 @@ async def select_service(message: types.Message, state: FSMContext):
     total_pages = response.data["total_pages"]
 
     if not transactions:
-        return await message.answer("Hisobotlar mavjud emas")
+        return await message.answer("Bu xizmat uchun hali hisobotlar mavjud emas.", reply_markup=service_admin_menu_kb)
     try:
         del_msg = await message.answer("1 soniya ...", reply_markup=types.ReplyKeyboardRemove())
         await dp.bot.delete_message(del_msg.chat.id, del_msg.message_id)
@@ -120,7 +122,7 @@ async def select_service(message: types.Message, state: FSMContext):
     )
 
 
-@dp.callback_query_handler(lambda c: c.data == "back:transactions", state="*")
+@dp.callback_query_handler(IsService(), lambda c: c.data == "back:transactions", state="*")
 async def back_to_services(callback: types.CallbackQuery, state: FSMContext):
     await state.finish()
     await callback.message.edit_reply_markup()
@@ -142,7 +144,7 @@ async def back_to_services(callback: types.CallbackQuery, state: FSMContext):
     await callback.answer()
 
 
-@dp.callback_query_handler(lambda c: c.data.startswith("transactions:"), state="*")
+@dp.callback_query_handler(IsService(), lambda c: c.data.startswith("transactions:"), state="*")
 async def paginate_transactions(callback: types.CallbackQuery):
     
     _, service_id, page = callback.data.split(":")
@@ -179,13 +181,13 @@ async def paginate_transactions(callback: types.CallbackQuery):
     await callback.answer()
 
 
-@dp.callback_query_handler(lambda c: c.data == "ignore", state="*")
+@dp.callback_query_handler(IsService(), lambda c: c.data == "ignore", state="*")
 async def ignore(callback: types.CallbackQuery):
     await callback.answer()
 
 
 
-@dp.callback_query_handler(lambda c: c.data.startswith("download:transactions"), state="*")
+@dp.callback_query_handler(IsService(), lambda c: c.data.startswith("download:transactions"), state="*")
 async def download_transactions_excel(callback: types.CallbackQuery, state: FSMContext):
     service_id = str(callback.data).split(":")[-1]
     await callback.answer("Yuklanmoqda...")

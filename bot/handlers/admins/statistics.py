@@ -1,29 +1,248 @@
 from aiogram import types
+from bot.keyboards.default.service.select_service import select_service_keyboard
 from bot.loader import dp, db
 from bot.filters import IsAdmin
 from aiogram.dispatcher import FSMContext
+from bot.keyboards.default import admin_menu_kb
+from bot.utils.main import format_currency
+from bot.keyboards.inline.service.report_paginator import get_pagination_keyboard
+from bot.keyboards.default import services_kb, back_kb
+import pandas as pd
+import io
+from datetime import datetime
+
 
 
 @dp.message_handler(IsAdmin(), text="📊Statistika", state="*")
 async def show_statistics(message: types.Message, state: FSMContext):
     await state.finish()
 
-    user_statistics = await db.get_users_stats()
-    driver_statistics = await db.get_drivers_stats()
-    service_statistics = await db.get_services_stats()
-    transaction_statistics = await db.get_transactions_stats()
+    services = await db.get_user_services(message.from_user.id)
+    if not services.success:
+        return await message.answer(services.message)
+    services = services.data
 
-    text = f"<b>👤 Foydalanuvchilar:</b>\n" \
-    f"Jami(botga start bosgan): {user_statistics['all_users']}\n"\
-    f"Aktiv: {user_statistics['connected_users']}\n"\
-    f"Adminlar: {user_statistics['manager_users']}\n"\
-    f"Managerlar: {user_statistics['service_users']}\n\n"\
-    f"<b>🚖 Haydovchilar:</b>\n" \
-    f"Jami: {driver_statistics['count']}\n"\
-    f"Faol: {driver_statistics['active_drivers']}\n\n"\
-    f"<b>🔧 Xizmatlar:</b>\n" \
-    f"Jami: {service_statistics['count']}\n\n"\
-    f"<b>💰Tranzaksiyalar:</b>\n" \
-    f"Jami: {transaction_statistics['count']}\n"
+    if not services:
+        await message.answer("Sizda xizmatlar mavjud emas.", reply_markup=admin_menu_kb)
+        return
+    
+    if len(services) == 1:
+        await state.update_data(service_id=services[0]["id"])
+        response = await db.get_service_transactions(services[0]["id"])
+        if not response.success:
+            return await message.answer(response.message)
+        transactions = response.data
+        if not transactions:
+            return await message.answer("Hisobotlar mavjud emas.\n"
+                                        "Servis hali hech qanday amaliyot bajargani yo'q.", reply_markup=admin_menu_kb)
+        
+        try:
+            del_msg = await message.answer("1 soniya ...", reply_markup=types.ReplyKeyboardRemove())
+            await dp.bot.delete_message(del_msg.chat.id, del_msg.message_id)
+        except:
+            pass
+        
+        transactions = response.data.get("transactions", [])
+        current_page = response.data["current_page"]
+        total_pages = response.data["total_pages"]
+        message_text = "📊 Tranzaksiyalar:\n\n"
+        for trx in transactions:
+            message_text += (
+                f"📍 ID: {trx['id']}\n"
+                f"👤 Haydovchi: {trx['driver']['full_name']}\n"
+                f"🚖 Mashina: {trx['driver']['car_model']} | {trx['driver']['car_plate']}\n"
+                f"💰 Miqdor: {format_currency(abs(int(trx['amount'])))} so'm\n"
+                f"📅 Vaqt: {trx['created_at'].strftime('%d-%m-%Y %H:%M')}\n"
+                f"📝 Izoh: {trx['description'] or 'Yo‘q'}\n\n"
+            )
 
-    await message.answer(text)
+        await message.answer(
+            message_text,
+            reply_markup=get_pagination_keyboard(services[0]["id"], current_page, total_pages)
+        )
+        await state.set_state("transactions:select_service")
+        return
+    await message.answer("Xizmatlar:", reply_markup=services_kb(services))
+    await state.set_state("transactions:select_service")
+
+
+
+@dp.message_handler(IsAdmin(), state="transactions:select_service")
+async def select_service(message: types.Message, state: FSMContext):
+    if message.text == "🔙 Orqaga":
+        await state.finish()
+        return await message.answer("Bosh menyu.", reply_markup=admin_menu_kb)
+    
+    if message.text == "⬅️Orqaga":
+        await state.finish()
+        return await message.answer("Bosh menyu.", reply_markup=admin_menu_kb)
+    
+    
+    service = await db.get_service_by_title(message.text)
+    if not service.success:
+        return await message.answer(service.message)
+    
+    service = service.data
+    if not service:
+        return await message.answer("Xizmat topilmadi", reply_markup=admin_menu_kb)
+    
+    await state.update_data(service_id=service["id"])
+    response = await db.get_service_transactions(service["id"], page=1, per_page=5)
+
+    if not response.success:
+        return await message.answer(response.message)
+    
+    transactions = response.data.get("transactions", [])
+    current_page = response.data["current_page"]
+    total_pages = response.data["total_pages"]
+
+    if not transactions:
+        return await message.answer("Hisobotlar mavjud emas.\n"
+                                    "Bu servis hali hech qanday amaliyot bajargani yo'q.", reply_markup=admin_menu_kb)
+    try:
+        del_msg = await message.answer("1 soniya ...", reply_markup=types.ReplyKeyboardRemove())
+        await dp.bot.delete_message(del_msg.chat.id, del_msg.message_id)
+    except:
+        pass
+
+    message_text = "📊 Tranzaksiyalar:\n\n"
+    for trx in transactions:
+        message_text += (
+            f"📍 ID: {trx['id']}\n"
+            f"👤 Haydovchi: {trx['driver']['full_name']}\n"
+            f"🚖 Mashina: {trx['driver']['car_model']} | {trx['driver']['car_plate']}\n"
+            f"💰 Miqdor: {format_currency(abs(int(trx['amount'])))} so'm\n"
+            f"📅 Vaqt: {trx['created_at'].strftime('%d-%m-%Y %H:%M')}\n"
+            f"📝 Izoh: {trx['description'] or 'Yo‘q'}\n\n"
+        )
+
+    await message.answer(
+        message_text,
+        reply_markup=get_pagination_keyboard(service["id"], current_page, total_pages)
+    )
+
+
+@dp.callback_query_handler(IsAdmin(), lambda c: c.data == "back:transactions", state="*")
+async def back_to_services(callback: types.CallbackQuery, state: FSMContext):
+    await state.finish()
+    await callback.message.edit_reply_markup()
+    services = await db.get_user_services(callback.from_user.id)
+    if not services.success:
+        await callback.answer()
+        return await callback.message.answer(services.message)
+    services = services.data
+
+    if len(services) == 1:
+        await callback.answer()
+        await state.finish()
+        await callback.message.delete()
+        await callback.message.answer("Bosh menyuga qaytdingiz.", reply_markup=admin_menu_kb)
+
+        return
+
+    await callback.message.answer("Hisobotlarni ko'rish uchun servisni tanlang.", reply_markup=select_service_keyboard(services))
+    await state.set_state("transactions:select_service")
+    await callback.answer()
+
+
+@dp.callback_query_handler(IsAdmin(), lambda c: c.data.startswith("transactions:"), state="*")
+async def paginate_transactions(callback: types.CallbackQuery):
+    
+    _, service_id, page = callback.data.split(":")
+    service_id, page = int(service_id), int(page)
+
+    response = await db.get_service_transactions(service_id, page=page, per_page=5)
+
+    if not response.success:
+        return await callback.answer(response.message, show_alert=True)
+
+    transactions = response.data.get("transactions", [])
+    current_page = response.data["current_page"]
+    total_pages = response.data["total_pages"]
+
+    if not transactions:
+        return await callback.answer("Hisobotlar mavjud emas.", show_alert=True)
+
+    message_text = "📊 Tranzaksiyalar:\n\n"
+    for trx in transactions:
+        message_text += (
+            f"📍 ID: {trx['id']}\n"
+            f"👤 Haydovchi: {trx['driver']['full_name']}\n"
+            f"🚖 Mashina: {trx['driver']['car_model']} | {trx['driver']['car_plate']}\n"
+            f"💰 Miqdor: {format_currency(abs(int(trx['amount'])))} so'm\n"
+            f"📅 Vaqt: {trx['created_at'].strftime('%d-%m-%Y %H:%M')}\n"
+            f"📝 Izoh: {trx['description'] or 'Yo‘q'}\n"
+            "--------------------------------\n"
+        )
+
+    await callback.message.edit_text(
+        message_text,
+        reply_markup=get_pagination_keyboard(service_id, current_page, total_pages)
+    )
+    await callback.answer()
+
+
+@dp.callback_query_handler(IsAdmin(), lambda c: c.data == "ignore", state="*")
+async def ignore(callback: types.CallbackQuery):
+    await callback.answer()
+
+
+
+@dp.callback_query_handler(IsAdmin(), lambda c: c.data.startswith("download:transactions"), state="*")
+async def download_transactions_excel(callback: types.CallbackQuery, state: FSMContext):
+    service_id = str(callback.data).split(":")[-1]
+    await callback.answer("Yuklanmoqda...")
+    if not service_id:
+        return await callback.answer("Xizmat ID kiritilmadi.", show_alert=True) 
+
+    response = await db.get_service_all_transactions(service_id)
+    if not response.success:
+        return await callback.answer(response.message, show_alert=True)
+
+    transactions = response.data or []
+    if not transactions:
+        return await callback.answer("Hisobotlar mavjud emas.", show_alert=True)
+    
+
+    data = [
+        {
+            "ID": trx["id"],
+            "Haydovchi": trx["driver"]["full_name"],
+            "Mashina": f"{trx['driver']['car_model']} - {trx['driver']['car_plate']}",
+            "Summa": str(format_currency(abs(int(trx["amount"])))) + " so'm",
+            "Tavsif": trx["description"],
+            "Vaqt": trx["created_at"].strftime("%d-%m-%Y %H:%M"),
+        }
+        for trx in transactions
+    ]
+
+    df = pd.DataFrame(data)
+
+    service = await db.get_service_by_id(service_id)
+    if not service.success:
+        return await callback.answer(service.message, show_alert=True)
+    
+    service = service.data
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False, sheet_name=service["title"])
+
+    output.seek(0)
+
+    now = datetime.now().strftime("%d-%m-%Y %H-%M")
+
+    try:
+        stat_data = await db.stats_for_service(service_id)
+        if not stat_data.success:
+            return await callback.answer(stat_data.message, show_alert=True)
+        stat_data = stat_data.data
+        await callback.message.answer_document(
+            types.InputFile(output, filename=f"hisobot | {service['title']} |{now}.xlsx"),
+            caption=f"Jami amaliyotlar: {stat_data['total_transactions']} ta\n"
+                    f"Jami summa: {format_currency(abs(int(stat_data['total_amount'])))} so'm\n"
+                    f"Hujjat tayyorlangan vaqt: {now}"
+        )
+        await callback.answer()
+    except Exception as e:
+        await callback.answer(f"Fayl yuborishda xatolik bo'ldi.", show_alert=True)

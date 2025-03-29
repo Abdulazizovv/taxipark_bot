@@ -11,6 +11,16 @@ from bot.filters import IsAdmin
 
 
 @dp.callback_query_handler(
+    IsAdmin(), service_edit_callback.filter(action="back"), state="*"
+)
+async def back_to_service_list(call: types.CallbackQuery, state: FSMContext):
+    await state.finish()
+    await call.message.delete()
+    await call.message.answer("Bosh menyuga qaytdingiz.", reply_markup=admin_menu_kb)
+    return
+
+
+@dp.callback_query_handler(
     IsAdmin(), service_edit_callback.filter(action="delete"), state="*"
 )
 async def delete_service(
@@ -19,15 +29,65 @@ async def delete_service(
     await state.finish()
 
     service_id = callback_data.get("service_id")
+    await state.update_data(service_id=service_id)
+
+    await call.message.edit_text(
+        "Servisni o'chirishni tasdiqlaysizmi?",
+        reply_markup=types.InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    types.InlineKeyboardButton(
+                        text="Yo'q ❌", callback_data="service_edit:back"
+                    ),
+                    types.InlineKeyboardButton(
+                        text="Ha ✅", callback_data="service_edit:confirm_delete"
+                    ),
+                ]
+            ]
+        ),
+    )
+
+    await state.set_state("confirm_delete_service")
+
+
+@dp.callback_query_handler(
+    IsAdmin(),
+    lambda call: call.data == "service_edit:back",
+    state="confirm_delete_service",
+)
+async def back_to_service(call: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    service_id = data.get("service_id")
+    service = await db.get_service_by_id(service_id)
+    if not service.success:
+        return await call.message.answer(service.message)
+
+    service = service.data
+
+    await call.message.edit_text(
+        f"<b>🆔 ID:</b> {service['id']}\n"
+        f"<b>🔧 Servis nomi:</b> {service['title']}\n"
+        f"<b>📋 Ma'lumot:</b> {service['description'] if service['description'] else '<i>Mavjud emas</i>'}\n"
+        f"<b>📞 Telefon raqam:</b> {service['phone_number']}\n"
+        f"<b>📅 Yaratilgan vaqti:</b> {service['created_at'].strftime("%d-%m-%Y %H:%M")}\n",
+        reply_markup=service_edit_kb(service["id"]),
+    )
+    await state.finish()
+
+
+@dp.callback_query_handler(IsAdmin(), lambda call: call.data == "service_edit:confirm_delete", state="confirm_delete_service")
+async def confirm_delete_service(call: types.CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    service_id = data.get("service_id")
+
     db_response = await db.delete_service(service_id)
     if not db_response.success:
         return await call.message.answer(db_response.message)
-
+    
     await call.message.edit_reply_markup()
-    await call.message.answer(
-        "Servis muvaffaqiyatli o'chirildi.", reply_markup=admin_menu_kb
-    )
+    await call.message.answer("Servis muvaffaqiyatli o'chirildi.", reply_markup=admin_menu_kb)
     await state.finish()
+
 
 
 @dp.callback_query_handler(

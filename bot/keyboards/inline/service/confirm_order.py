@@ -8,13 +8,13 @@ def confirm_order_kb(driver_id: int, service_id: int, summa: int) -> InlineKeybo
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="Tasdiqlash 🟢",
-                    callback_data=confirm_order_cb.new(action="confirm", driver_id=driver_id, service_id=service_id, summa=summa)
+                    text="Bekor qilish ❌",
+                    callback_data=confirm_order_cb.new(action="cancel", driver_id=driver_id, service_id=service_id, summa=summa)
                 ),
                 InlineKeyboardButton(
-                    text="Bekor qilish 🔴",
-                    callback_data=confirm_order_cb.new(action="cancel", driver_id=driver_id, service_id=service_id, summa=summa)
-                )
+                    text="Tasdiqlash ✅",
+                    callback_data=confirm_order_cb.new(action="confirm", driver_id=driver_id, service_id=service_id, summa=summa)
+                ),
             ]
         ]
     )

@@ -12,3 +12,6 @@ from . import edit_service
 from . import add_service
 from . import submit_service
 from . import service
+from . import service_managers
+from . import new_service_manager
+from . import edit_service_manager

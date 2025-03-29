@@ -5,20 +5,22 @@ from bot.keyboards.inline import driver_detail_callback
 from bot.keyboards.inline import edit_driver_detail_kb
 from bot.keyboards.default import back_kb
 from bot.utils.main import format_currency
+from bot.filters import IsAdmin
 
 
-@dp.callback_query_handler(driver_detail_callback.filter(action="add_balance"))
+@dp.callback_query_handler(IsAdmin(), driver_detail_callback.filter(action="add_balance"))
 async def add_balance(
     call: types.CallbackQuery, callback_data: dict, state: FSMContext
 ):
     driver_id = int(callback_data.get("driver_id"))
     await call.message.edit_reply_markup()
-    await call.message.answer("Summani kiriting:", reply_markup=back_kb)
+    await call.message.answer("Summani kiriting:\n"
+                              "<i>Eslatma: agar hisobdan mablag' ayirmoqchi bo'lsangiz shunchaki summani manfiy son ko'rinishida yuboring.</i>", reply_markup=back_kb)
     await state.set_state("add_balance")
     await state.update_data(driver_id=driver_id)
 
 
-@dp.message_handler(state="add_balance")
+@dp.message_handler(IsAdmin(), state="add_balance")
 async def add_balance(message: types.Message, state: FSMContext):
     data = await state.get_data()
 
@@ -101,7 +103,7 @@ async def add_balance(message: types.Message, state: FSMContext):
 
 
 @dp.callback_query_handler(
-    lambda call: call.data.startswith("cancel_balance"), state="*"
+    IsAdmin(), lambda call: call.data.startswith("cancel_balance"), state="*"
 )
 async def cancel_balance(call: types.CallbackQuery, state: FSMContext):
     driver_id = int(call.data.split(":")[-1])
@@ -127,7 +129,7 @@ async def cancel_balance(call: types.CallbackQuery, state: FSMContext):
 
 
 @dp.callback_query_handler(
-    lambda call: call.data.startswith("confirm_balance"), state="*"
+    IsAdmin(), lambda call: call.data.startswith("confirm_balance"), state="*"
 )
 async def confirm_balance(call: types.CallbackQuery, state: FSMContext):
     balance = int(call.data.split(":")[1])
@@ -163,7 +165,7 @@ async def confirm_balance(call: types.CallbackQuery, state: FSMContext):
     await state.finish()
 
 
-@dp.message_handler(state="add_balance_comment")
+@dp.message_handler(IsAdmin(), state="add_balance_comment")
 async def add_balance_comment(message: types.Message, state: FSMContext):
     data = await state.get_data()
 

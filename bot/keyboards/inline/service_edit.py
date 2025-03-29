@@ -18,6 +18,18 @@ def service_edit_kb(service_id: int) -> InlineKeyboardMarkup:
                 text="Servisni o'chirish🗑",
                 callback_data=service_edit_callback.new(action="delete", service_id=service_id)
             )
+        ],
+        [
+            InlineKeyboardButton(
+                text="Menejerlar👥",
+                callback_data=service_edit_callback.new(action="managers", service_id=service_id)
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="⬅️Orqaga",
+                callback_data=service_edit_callback.new(action="back", service_id=service_id)
+            )
         ]
     ]
     )

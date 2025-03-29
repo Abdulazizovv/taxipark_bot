@@ -15,7 +15,7 @@ async def new_driver(message: types.Message, state: FSMContext):
     await state.set_state("new_driver_name")
 
 
-@dp.message_handler(state="new_driver_name")
+@dp.message_handler(IsAdmin(), state="new_driver_name")
 async def new_driver_name(message: types.Message, state: FSMContext):
     driver_name = message.text
 
@@ -45,7 +45,7 @@ async def new_driver_number(message: types.Message, state: FSMContext):
     await state.set_state("new_driver_car_model")
 
 
-@dp.message_handler(state="new_driver_car_model")
+@dp.message_handler(IsAdmin(), state="new_driver_car_model")
 async def new_driver_car_model(message: types.Message, state: FSMContext):
     car_model = message.text.upper()
 

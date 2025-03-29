@@ -80,10 +80,8 @@ class DBCommands:
                 "car_plate",
                 "balance",
                 "tariff",
-            )
-            .order_by("id")[offset : offset + limit] 
+            ).order_by("id")[offset : offset + limit]
         )
-
 
     @sync_to_async
     def search_drivers(self, search_query: str, offset=0, limit=50):
@@ -228,7 +226,7 @@ class DBCommands:
     def get_driver_by_car_plate(self, car_plate: str):
         try:
             driver = (
-                Driver.active_drivers.filter(car_plate=car_plate)
+                Driver.objects.filter(car_plate__iexact=car_plate)
                 .values(
                     "id",
                     "full_name",
@@ -344,7 +342,13 @@ class DBCommands:
                 driver=driver,
                 amount=amount,
                 description=(
-                    description if description else "Admin tomondan balansni to'ldirish" if amount > 0 else "Admin tomondan balansni kamaytirish"
+                    description
+                    if description
+                    else (
+                        "Admin tomondan balansni to'ldirish"
+                        if amount > 0
+                        else "Admin tomondan balansni kamaytirish"
+                    )
                 ),
             )
             logging.info(f"Balance added to driver with id {driver_id}")
@@ -368,32 +372,72 @@ class DBCommands:
 
     # ==================== Service Categories ====================
 
-
-
-
     # ==================== Services ====================
 
     @sync_to_async
-    def get_all_services(self):
+    def get_service_managers(self, service_id: int):
+        try:
+            service = Service.objects.get(id=service_id)
+            managers = service.managers.exclude(
+                Q(is_deleted__isnull=False) | Q(role="admin")
+            )
 
-        data = list(
-            Service.objects.values(
+            data = list(
+                managers.values(
+                    "id",
+                    "full_name",
+                    "phone_number",
+                    "role",
+                    "created_at",
+                    "updated_at",
+                ).order_by("id")
+            )
+
+            return DbResponse(success=True, message="Menejerlar ro'yxati", data=data)
+
+        except Service.DoesNotExist:
+            logging.error(f"Service with id {service_id} does not exist")
+            return DbResponse(success=False, message="Servis topilmadi", data=None)
+
+        except Exception as e:
+            logging.error(f"Error getting service managers: {e}")
+            return DbResponse(success=False, message="Xatolik sodir bo'ldi", data=None)
+
+    @sync_to_async
+    def get_user_all_services(self, user_id: int):
+        manager = Manager.active_managers.filter(id=user_id, role="admin").first()
+        print(manager)
+        if not manager:
+            return DbResponse(
+                success=False, message="Foydalanuvchi topilmadi", data=None
+            )
+
+        services = (
+            Service.active_objects.filter(managers__id=manager.id)
+            .values(
                 "id", "phone_number", "title", "description", "created_at", "updated_at"
-            ).order_by("id")
+            )
+            .order_by("id")
         )
-        if data:
-            return DbResponse(success=True, message="Servislar ro'yxati", data=data)
-        else:
-            return DbResponse(success=False, message="Servislar topilmadi", data=None)
+        print(services)
+        if services.exists():  # Bo'sh emasligini tekshiramiz
+            return DbResponse(
+                success=True, message="Servislar ro'yxati", data=list(services)
+            )
+
+        return DbResponse(success=False, message="Servislar topilmadi", data=None)
 
     @sync_to_async
     def create_new_service(
-        self, title, description: str | None, phone_number: str
+        self, title, description: str | None, phone_number: str, user_id: int
     ):
         try:
             service = Service.objects.create(
                 title=title, description=description, phone_number=phone_number
             )
+            bot_user = BotUser.objects.get(user_id=user_id)
+            service.managers.add(bot_user.employee)
+            service.save()
             return DbResponse(
                 success=True,
                 message="Yangi servis muvaffaqiyatli qo'shildi",
@@ -469,8 +513,8 @@ class DBCommands:
     @sync_to_async
     def delete_service(self, service_id: int):
         try:
-            service = Service.objects.get(id=service_id)
-            service.delete()
+            service = Service.active_objects.get(id=service_id)
+            service.safe_delete()
             return DbResponse(
                 success=True, message="Servis muvaffaqiyatli o'chirildi", data=None
             )
@@ -543,7 +587,6 @@ class DBCommands:
                 success=False, message="Noma'lum xatolik sodir bo'ldi", data=None
             )
 
-
     # ==================== Get statistics ====================
     @sync_to_async
     def stats_for_service(self, service_id: int):
@@ -552,13 +595,11 @@ class DBCommands:
             transactions = Transaction.objects.filter(service=service)
             total_transactions = transactions.count()
             total_amount = transactions.aggregate(total=Sum("amount"))["total"]
-            data =  {
+            data = {
                 "total_transactions": total_transactions,
                 "total_amount": total_amount,
             }
-            return DbResponse(
-                success=True, message="Statistika", data=data
-            )
+            return DbResponse(success=True, message="Statistika", data=data)
         except Exception as e:
             logging.error(f"Error getting stats: {e}")
             return DbResponse(
@@ -611,7 +652,6 @@ class DBCommands:
     def get_services_count(self):
         return Service.objects.count()
 
-
     @sync_to_async
     def get_transactions_count(self):
         return Transaction.objects.count()
@@ -630,6 +670,46 @@ class DBCommands:
         return DbResponse(success=False, message="Tranzaksiyalar topilmadi", data=None)
 
     # ==================== Service Manager ====================
+    @sync_to_async
+    def edit_service_manager_name(self, manager_id: int, full_name: str):
+        try:
+            manager = Manager.active_managers.get(id=manager_id)
+            manager.full_name = full_name
+            manager.save()
+            return DbResponse(
+                success=True,
+                message="Menejer ismi muvaffaqiyatli o'zgartirildi",
+                data=None,
+            )
+        except Manager.DoesNotExist:
+            logging.error(f"Manager with id {manager_id} does not exist")
+            return DbResponse(success=False, message="Menejer topilmadi", data=None)
+        except Exception as e:
+            logging.error(f"Error editing service manager name: {e}")
+            return DbResponse(
+                success=False, message="Noma'lum xatolik sodir bo'ldi", data=None
+            )
+
+    @sync_to_async
+    def edit_service_manager_phone_number(self, manager_id: int, phone_number: str):
+        try:
+            manager = Manager.active_managers.get(id=manager_id)
+            manager.phone_number = phone_number
+            manager.save()
+            return DbResponse(
+                success=True,
+                message="Menejer telefon raqami muvaffaqiyatli o'zgartirildi",
+                data=None,
+            )
+        except Manager.DoesNotExist:
+            logging.error(f"Manager with id {manager_id} does not exist")
+            return DbResponse(success=False, message="Menejer topilmadi", data=None)
+        except Exception as e:
+            logging.error(f"Error editing service manager phone number: {e}")
+            return DbResponse(
+                success=False, message="Noma'lum xatolik sodir bo'ldi", data=None
+            )
+
     @sync_to_async
     def get_user_services(self, user_id: str) -> DbResponse:
         try:
@@ -653,6 +733,73 @@ class DBCommands:
             )
         except Exception as e:
             logging.error(f"Error getting user services: {e}")
+            return DbResponse(
+                success=False, message="Noma'lum xatolik sodir bo'ldi", data=None
+            )
+
+    @sync_to_async
+    def get_service_manager(self, service_id: int, manager_id: int):
+        try:
+            service = Service.objects.get(id=service_id)
+            manager = service.managers.get(id=manager_id)
+            data = {
+                "id": manager.id,
+                "full_name": manager.full_name,
+                "phone_number": manager.phone_number,
+                "role": manager.role,
+                "created_at": manager.created_at,
+                "updated_at": manager.updated_at,
+            }
+            return DbResponse(success=True, message="Menejer ma'lumotlari", data=data)
+        except Service.DoesNotExist:
+            logging.error(f"Service with id {service_id} does not exist")
+            return DbResponse(success=False, message="Servis topilmadi", data=None)
+        except Manager.DoesNotExist:
+            logging.error(f"Manager with id {manager_id} does not exist")
+            return DbResponse(success=False, message="Menejer topilmadi", data=None)
+        except Exception as e:
+            logging.error(f"Error getting service manager: {e}")
+            return DbResponse(
+                success=False, message="Noma'lum xatolik sodir bo'ldi", data=None
+            )
+
+    @sync_to_async
+    def add_new_service_manager(
+        self, service_id: int, full_name: str, phone_number: str, role="service"
+    ):
+        try:
+            service = Service.objects.get(id=service_id)
+            manager, created = Manager.objects.get_or_create(
+                phone_number=phone_number,
+                defaults={"full_name": full_name, "role": role},
+            )
+            service.managers.add(manager)
+            service.save()
+            return DbResponse(
+                success=True,
+                message="Menejer muvaffaqiyatli qo'shildi",
+                data={"manager_id": manager.id},
+            )
+        except Service.DoesNotExist:
+            logging.error(f"Service with id {service_id} does not exist")
+            return DbResponse(success=False, message="Servis topilmadi", data=None)
+        except Exception as e:
+            logging.error(f"Error creating service manager: {e}")
+            return DbResponse(success=False, message="Xatolik sodir bo'ldi", data=None)
+
+    @sync_to_async
+    def delete_service_manager(self, manager_id: int):
+        try:
+            manager = Manager.active_managers.get(id=manager_id)
+            manager.soft_delete()
+            return DbResponse(
+                success=True, message="Menejer muvaffaqiyatli o'chirildi", data=None
+            )
+        except Manager.DoesNotExist:
+            logging.error(f"Manager with id {manager_id} does not exist")
+            return DbResponse(success=False, message="Menejer topilmadi", data=None)
+        except Exception as e:
+            logging.error(f"Error deleting service manager: {e}")
             return DbResponse(
                 success=False, message="Noma'lum xatolik sodir bo'ldi", data=None
             )

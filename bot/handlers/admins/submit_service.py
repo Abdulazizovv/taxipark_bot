@@ -13,7 +13,8 @@ async def submit_service(call: types.CallbackQuery, callback_data: dict, state: 
     db_response = await db.create_new_service(
         title=data.get("service_name"),
         description=data.get("service_description"),
-        phone_number=data.get("service_phone")
+        phone_number=data.get("service_phone"),
+        user_id=call.from_user.id
     )
 
     if not db_response.success:

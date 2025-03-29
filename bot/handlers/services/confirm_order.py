@@ -23,8 +23,10 @@ async def confirm_order(call: types.CallbackQuery, callback_data: dict, state: F
         if not order.success:
             await call.message.answer(order.message)
             return
-        await call.message.reply("Amaliyot muvaffaqqiyatli amalga oshirildi ✅", reply_markup=service_admin_menu_kb)
+        await call.message.reply("Amaliyot muvaffaqqiyatli amalga oshirildi ✅\n"
+                                 "Bosh menyuga qaytdingiz.", reply_markup=service_admin_menu_kb)
         await state.finish()
     else:
-        await call.message.reply("Amaliyot bekor qilindi ❌", reply_markup=service_admin_menu_kb)
+        await call.message.reply("Amaliyot bekor qilindi ❌\n"
+                                 "Bosh menyuga qaytdingiz", reply_markup=service_admin_menu_kb)
         await state.finish()

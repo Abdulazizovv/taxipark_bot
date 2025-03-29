@@ -3,12 +3,14 @@ from bot.loader import dp, db
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import Text
 from bot.keyboards.default import back_kb, service_admin_menu_kb
+from bot.filters import IsService
 
 
-@dp.message_handler(Text(startswith="🚖"), state="select_driver")
+@dp.message_handler(IsService(), Text(startswith="🚖"), state="select_driver")
 async def select_driver(message: types.Message, state: FSMContext):
     driver = message.text
-    driver_car_plate = driver.split(" ")[1]
+    driver_car_plate = driver.split("🚖")[1].strip()
+    print(driver_car_plate)
         
     # tanlangan haydovchini bazadan olish
     driver = await db.get_driver_by_car_plate(car_plate=driver_car_plate)
@@ -30,7 +32,7 @@ async def select_driver(message: types.Message, state: FSMContext):
     await state.set_state("enter_sum")
     
 
-@dp.message_handler(text="◀️Orqaga", state="select_driver")
+@dp.message_handler(IsService(), text="◀️Orqaga", state="select_driver")
 async def back_to_service(message: types.Message, state: FSMContext):
     await message.answer("Bosh menyuga qaytdingiz!", reply_markup=service_admin_menu_kb)
     await state.finish()

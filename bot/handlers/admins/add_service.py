@@ -1,17 +1,37 @@
+from asyncio import sleep
 from aiogram import types
-from bot.loader import dp, db
 from aiogram.dispatcher import FSMContext
+
+from bot.loader import dp, db
+from bot.filters import IsAdmin
 from bot.keyboards.inline.submit_service import submit_service_kb
 from bot.keyboards.default import admin_menu_kb
 from bot.keyboards.default.service_back import back_kb
-from asyncio import sleep
+
+# Constants for reusable messages
+ENTER_SERVICE_NAME = (
+    "Yangi servis nomini kiriting:\n"
+    "<i>masalan: <b>Shaffof Gaz quyish shahobchasi</b></i>"
+)
+
+ENTER_DESCRIPTION = (
+    "Servis haqida qisqacha ma'lumot bering:\n"
+    "<i>masalan: <b>Chilonzor filiali</b></i>"
+)
+
+ENTER_PHONE = (
+    "Servis uchun telefon raqamini kiriting:\n"
+    "<i>masalan: <b>+998YYXXXXXXX</b></i>"
+)
+
+BACK_TO_MAIN_MENU = "Bosh menyuga qaytdingiz."
 
 
-@dp.message_handler(text="Yangi servis➕", state="*")
-async def add_service(message: types.Message, state: FSMContext):
-
+@dp.message_handler(IsAdmin(), text="Yangi servis➕", state="*")
+async def add_service(message: types.Message, state: FSMContext) -> None:
+    """Starts the process of adding a new service."""
     await state.finish()
-
+    
     await message.answer(
         "Yangi servis qo'shish uchun kerakli ma'lumotlar:\n\n"
         "1️⃣ Servis nomi\n"
@@ -20,24 +40,19 @@ async def add_service(message: types.Message, state: FSMContext):
         "4️⃣ Servisni tasdiqlash\n"
     )
 
-    await message.answer(
-        "Yangi servis nomini kiriting:\n" "<i>masalan: <b>Shaffof Gaz quyish shahobchasi</b></i>",
-        parse_mode="html",
-        reply_markup=back_kb,
-    )
-
+    await message.answer(ENTER_SERVICE_NAME, parse_mode="html", reply_markup=back_kb)
     await state.set_state("service_name")
 
 
-@dp.message_handler(state="service_name")
-async def get_service_name(message: types.Message, state: FSMContext):
-
-    if message.text == "⬅️Orqaga":
-        await message.answer("Bosh menyuga qaytdingiz.", reply_markup=admin_menu_kb)
+@dp.message_handler(IsAdmin(), state="service_name")
+async def get_service_name(message: types.Message, state: FSMContext) -> None:
+    """Handles service name input."""
+    if message.text.strip() == "⬅️Orqaga":
+        await message.answer(BACK_TO_MAIN_MENU, reply_markup=admin_menu_kb)
         await state.finish()
         return
 
-    service_name = message.text
+    service_name = message.text.strip()
 
     service_name_exists = await db.check_service_title_exists(service_name)
     if not service_name_exists.success:
@@ -45,72 +60,47 @@ async def get_service_name(message: types.Message, state: FSMContext):
         return
 
     await state.update_data(service_name=service_name)
-
-    await message.answer(
-        "Servis haqida qisqacha ma'lumot bering:\n"
-        "<i>masalan: <b>Chilonzor filiali</b></i>",
-        parse_mode="html",
-        reply_markup=back_kb,
-    )
-
+    await message.answer(ENTER_DESCRIPTION, parse_mode="html", reply_markup=back_kb)
     await state.set_state("service_description")
 
 
-@dp.message_handler(state="service_description")
-async def get_service_description(message: types.Message, state: FSMContext):
-
-    if message.text == "⬅️Orqaga":
-        await message.answer(
-            "Yangi servis nomini kiriting:\n" "<i>masalan: <b>Shaffof Gaz quyish shahobchasi</b></i>",
-            parse_mode="html",
-            reply_markup=back_kb,
-        )
+@dp.message_handler(IsAdmin(), state="service_description")
+async def get_service_description(message: types.Message, state: FSMContext) -> None:
+    """Handles service description input."""
+    if message.text.strip() == "⬅️Orqaga":
+        await message.answer(ENTER_SERVICE_NAME, parse_mode="html", reply_markup=back_kb)
         await state.set_state("service_name")
         return
 
-    service_description = message.text
-
+    service_description = message.text.strip()
     await state.update_data(service_description=service_description)
-
-    await message.answer(
-        "Servis uchun telefon raqamini kiriting:\n"
-        "<i>masalan: <b>+998 99 999 99 99</b></i>",
-        parse_mode="html",
-        reply_markup=back_kb,
-    )
-
+    await message.answer(ENTER_PHONE, parse_mode="html", reply_markup=back_kb)
     await state.set_state("service_phone")
 
 
-@dp.message_handler(state="service_phone")
-async def get_service_phone(message: types.Message, state: FSMContext):
-
-    if message.text == "⬅️Orqaga":
-        await message.answer(
-            "Servis haqida qisqacha ma'lumot bering:\n"
-            "<i>masalan: <b>Shaffof - 24/7</b></i>",
-            parse_mode="html",
-            reply_markup=back_kb,
-        )
+@dp.message_handler(IsAdmin(), state="service_phone")
+async def get_service_phone(message: types.Message, state: FSMContext) -> None:
+    """Handles service phone number input."""
+    if message.text.strip() == "⬅️Orqaga":
+        await message.answer(ENTER_DESCRIPTION, parse_mode="html", reply_markup=back_kb)
         await state.set_state("service_description")
         return
 
-    service_phone = message.text
+    service_phone = message.text.strip()
     await state.update_data(service_phone=service_phone)
     data = await state.get_data()
 
-    await state.update_data(service_phone=service_phone)
     await message.answer("⏳", reply_markup=types.ReplyKeyboardRemove())
     await sleep(1)
+    
     await message.answer(
         "Ma'lumotlar qabul qilindi!\n"
-        f"Servis nomi: {data['service_name']}\n"
-        f"Servis haqida: {data['service_description']}\n"
-        f"Telefon raqam: {data['service_phone']}\n",
+        f"📌 <b>Servis nomi:</b> {data['service_name']}\n"
+        f"📌 <b>Servis haqida:</b> {data['service_description']}\n"
+        f"📌 <b>Telefon raqam:</b> {data['service_phone']}\n",
+        parse_mode="html",
         reply_markup=submit_service_kb(),
     )
-    return
-
 
 
 # @dp.message_handler(state="service_category")
